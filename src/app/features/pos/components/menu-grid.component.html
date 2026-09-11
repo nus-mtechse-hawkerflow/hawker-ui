@@ -1,0 +1,145 @@
+<div class="flex flex-col h-full space-y-3">
+  
+  <!-- Category Tabs & Search Bar -->
+  <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 shrink-0">
+    
+    <!-- Categories Scrollable Row -->
+    <div class="flex items-center gap-1.5 overflow-x-auto flex-1 scrollbar-none py-0.5">
+      @for (cat of categories(); track cat.id) {
+        <button
+          type="button"
+          (click)="selectCategory(cat.id)"
+          [class.bg-orange-500]="selectedCategoryId() === cat.id"
+          [class.text-white]="selectedCategoryId() === cat.id"
+          [class.shadow-md]="selectedCategoryId() === cat.id"
+          [class.shadow-orange-500/20]="selectedCategoryId() === cat.id"
+          [class.bg-white]="selectedCategoryId() !== cat.id"
+          [class.dark:bg-slate-800]="selectedCategoryId() !== cat.id"
+          [class.text-slate-700]="selectedCategoryId() !== cat.id"
+          [class.dark:text-slate-300]="selectedCategoryId() !== cat.id"
+          [class.border-slate-200]="selectedCategoryId() !== cat.id"
+          [class.dark:border-slate-700]="selectedCategoryId() !== cat.id"
+          class="h-10 flex items-center gap-2 px-3.5 rounded-xl text-xs md:text-sm font-semibold border transition-all whitespace-nowrap cursor-pointer hover:border-orange-300 dark:hover:border-orange-700 shrink-0"
+        >
+          @if (cat.icon) {
+            <app-icon [name]="cat.icon" [size]="16"></app-icon>
+          }
+          <span>{{ cat.name }}</span>
+          @if (cat.chineseName) {
+            <span class="opacity-75 text-[11px] hidden lg:inline font-normal">({{ cat.chineseName }})</span>
+          }
+        </button>
+      }
+    </div>
+
+    <!-- Search Bar with perfectly matching h-10 height and alignment -->
+    <div class="relative w-full sm:w-60 md:w-72 shrink-0 flex items-center">
+      <app-icon name="search" [size]="16" class="absolute left-3.5 text-slate-400 pointer-events-none"></app-icon>
+      <input
+        type="text"
+        [ngModel]="searchQuery()"
+        (ngModelChange)="onSearchChange($event)"
+        placeholder="Search dish / 菜名..."
+        class="h-10 w-full pl-11 pr-8 text-xs md:text-sm rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500 transition-all leading-normal"
+      />
+      @if (searchQuery()) {
+        <button
+          type="button"
+          (click)="clearSearch()"
+          class="absolute right-2.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 cursor-pointer flex items-center justify-center rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+        >
+          <app-icon name="x" [size]="14"></app-icon>
+        </button>
+      }
+    </div>
+
+  </div>
+
+  <!-- Menu Items Grid -->
+  <div class="flex-1 overflow-y-auto pr-1">
+    @if (items().length === 0) {
+      <div class="flex flex-col items-center justify-center h-64 text-center p-6 bg-white dark:bg-slate-800/40 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700">
+        <span class="text-4xl mb-2">🍽️</span>
+        <p class="font-bold text-slate-700 dark:text-slate-300">No dishes found</p>
+        <p class="text-xs text-slate-500 mt-1">Try searching for something else or switch category</p>
+      </div>
+    } @else {
+      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+        @for (item of items(); track item.id) {
+          <div
+            (click)="onItemClick(item)"
+            [class.opacity-50]="!item.isAvailable"
+            [class.pointer-events-none]="!item.isAvailable"
+            [class.grayscale]="!item.isAvailable"
+            class="group relative bg-white dark:bg-slate-900 rounded-2xl p-3.5 border border-slate-200/80 dark:border-slate-800 shadow-xs hover:shadow-md hover:border-orange-400 dark:hover:border-orange-600 active:scale-[0.98] transition-all flex flex-col justify-between cursor-pointer min-h-[140px]"
+          >
+            
+            <!-- Sold Out (86) Overlay Ribbon -->
+            @if (!item.isAvailable) {
+              <div class="absolute inset-0 bg-slate-900/60 rounded-2xl z-10 flex items-center justify-center backdrop-blur-[1px]">
+                <span class="px-3 py-1 bg-rose-600 text-white font-extrabold text-xs tracking-wider rounded-lg shadow-md uppercase rotate-[-6deg]">
+                  86 / Sold Out
+                </span>
+              </div>
+            }
+
+            <!-- Top Row: Badge & Prep time -->
+            <div class="flex items-start justify-between gap-1 mb-1.5">
+              <div class="flex items-center gap-1">
+                @if (item.popularBadge) {
+                  <span class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                    {{ item.popularBadge }}
+                  </span>
+                }
+              </div>
+              @if (item.preparationTimeMins) {
+                <span class="flex items-center gap-1 text-[11px] text-slate-400 dark:text-slate-500 font-mono">
+                  <app-icon name="clock" [size]="12"></app-icon>
+                  {{ item.preparationTimeMins }}m
+                </span>
+              }
+            </div>
+
+            <!-- Main Content: Emoji + Title -->
+            <div class="flex items-start gap-2.5 my-1">
+              <span class="text-3xl shrink-0 p-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 group-hover:scale-110 transition-transform">
+                {{ item.emoji || '🍛' }}
+              </span>
+              <div class="flex-1 min-w-0">
+                <h4 class="font-bold text-xs md:text-sm text-slate-900 dark:text-white leading-tight line-clamp-2 group-hover:text-orange-600 dark:group-hover:text-orange-400 transition-colors">
+                  {{ item.name }}
+                </h4>
+                @if (item.chineseName) {
+                  <p class="text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate mt-0.5">
+                    {{ item.chineseName }}
+                  </p>
+                }
+              </div>
+            </div>
+
+            <!-- Bottom Row: Price & Modifier Indicator -->
+            <div class="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+              <span class="font-extrabold text-sm md:text-base text-orange-600 dark:text-orange-400">
+                \${{ item.basePrice.toFixed(2) }}
+              </span>
+              
+              <div class="flex items-center gap-1 text-slate-400 group-hover:text-orange-600 dark:group-hover:text-orange-400 transition-colors">
+                @if (item.modifierGroups && item.modifierGroups.length > 0) {
+                  <span class="text-[10px] font-semibold bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded-md">
+                    Customise
+                  </span>
+                } @else {
+                  <span class="w-6 h-6 rounded-lg bg-orange-50 dark:bg-orange-950 flex items-center justify-center text-orange-600 dark:text-orange-400">
+                    <app-icon name="plus" [size]="14"></app-icon>
+                  </span>
+                }
+              </div>
+            </div>
+
+          </div>
+        }
+      </div>
+    }
+  </div>
+
+</div>

@@ -1,0 +1,125 @@
+@if (order) {
+  <div
+    class="rounded-2xl border-2 shadow-sm transition-all flex flex-col justify-between overflow-hidden bg-white dark:bg-slate-900"
+    [ngClass]="cardColorClasses"
+  >
+    
+    <!-- Ticket Header: Order #, Timer, Dining badge -->
+    <div class="p-3.5 border-b" [ngClass]="headerColorClasses">
+      <div class="flex items-center justify-between gap-2">
+        
+        <div class="flex items-center gap-2">
+          <span class="text-xl font-black tracking-tight" [ngClass]="orderNumberColorClass">
+            {{ order.orderNumber }}
+          </span>
+          <span class="text-[11px] font-bold px-2 py-0.5 rounded-full uppercase"
+            [ngClass]="order.diningOption === 'dine_in' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' : 'bg-orange-100 text-orange-800 dark:bg-orange-950 dark:text-orange-300'">
+            {{ order.diningOption === 'dine_in' ? '🍽️ Dine-in' : '🥡 Takeaway' }}
+          </span>
+        </div>
+
+        <!-- Elapsed Timer with Warning Level -->
+        <div class="flex items-center gap-1 font-mono font-bold text-xs px-2.5 py-1 rounded-lg"
+          [ngClass]="timerBadgeClasses">
+          <app-icon name="clock" [size]="13"></app-icon>
+          <span>{{ elapsedFormatted() }}</span>
+        </div>
+
+      </div>
+
+      <!-- Table / Buzzer & Created Time -->
+      <div class="mt-1.5 flex items-center justify-between text-xs">
+        <span class="font-bold text-slate-700 dark:text-slate-200">
+          📍 {{ order.tableOrBuzzerNumber || 'Counter' }}
+        </span>
+        <span class="text-slate-400 dark:text-slate-500 font-mono text-[11px]">
+          {{ formatOrderTime(order.createdAt) }}
+        </span>
+      </div>
+    </div>
+
+    <!-- Ticket Items List -->
+    <div class="p-3.5 overflow-y-auto max-h-64 flex-1 space-y-2.5 divide-y divide-slate-100 dark:divide-slate-800">
+      @for (item of order.items; track item.id) {
+        <div class="pt-2 first:pt-0">
+          <div class="flex items-start gap-2">
+            <span class="w-6 h-6 rounded-md bg-slate-900 text-white dark:bg-white dark:text-slate-900 font-black text-xs flex items-center justify-center shrink-0">
+              {{ item.quantity }}
+            </span>
+            <div class="flex-1 min-w-0">
+              <div class="font-bold text-sm text-slate-900 dark:text-white leading-tight">
+                {{ item.name }}
+              </div>
+              @if (item.chineseName) {
+                <div class="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                  {{ item.chineseName }}
+                </div>
+              }
+
+              <!-- Modifiers -->
+              @for (mod of item.selectedModifiers; track mod.optionId) {
+                <div class="text-xs font-semibold text-orange-600 dark:text-orange-400 mt-0.5 flex items-center gap-1">
+                  <span>•</span>
+                  <span>{{ mod.optionName }}</span>
+                </div>
+              }
+
+              <!-- Special Notes / Instructions -->
+              @if (item.specialNotes) {
+                <div class="text-xs font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 px-2 py-1 rounded-lg mt-1 border border-amber-200 dark:border-amber-800/60">
+                  ⚠️ "{{ item.specialNotes }}"
+                </div>
+              }
+            </div>
+          </div>
+        </div>
+      }
+
+      @if (order.orderNotes) {
+        <div class="pt-2 text-xs italic font-medium text-slate-500 dark:text-slate-400">
+          Order Remarks: "{{ order.orderNotes }}"
+        </div>
+      }
+    </div>
+
+    <!-- Action Bar: 1-Tap Status Progress -->
+    <div class="p-3 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/50 flex items-center gap-2">
+      
+      <!-- Status Flow Buttons -->
+      @if (order.status === 'pending') {
+        <button
+          type="button"
+          (click)="advanceStatus.emit({ orderId: order.id, status: 'preparing' })"
+          class="flex-1 py-2.5 px-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-amber-500/20 active:scale-[0.98] transition-all cursor-pointer"
+        >
+          <app-icon name="flame" [size]="16"></app-icon>
+          <span>Start Cooking</span>
+        </button>
+      }
+
+      @if (order.status === 'preparing') {
+        <button
+          type="button"
+          (click)="advanceStatus.emit({ orderId: order.id, status: 'ready' })"
+          class="flex-1 py-2.5 px-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-blue-600/20 active:scale-[0.98] transition-all cursor-pointer"
+        >
+          <app-icon name="check" [size]="16"></app-icon>
+          <span>Mark Ready</span>
+        </button>
+      }
+
+      @if (order.status === 'ready') {
+        <button
+          type="button"
+          (click)="advanceStatus.emit({ orderId: order.id, status: 'completed' })"
+          class="flex-1 py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-emerald-600/20 active:scale-[0.98] transition-all cursor-pointer"
+        >
+          <app-icon name="check-circle" [size]="16"></app-icon>
+          <span>Bump / Served</span>
+        </button>
+      }
+
+    </div>
+
+  </div>
+}

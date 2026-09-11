@@ -1,0 +1,120 @@
+<div class="max-w-7xl mx-auto h-[calc(100vh-68px)] p-3 md:p-4 flex flex-col space-y-3 overflow-hidden">
+  
+  <!-- Top Control & Status Bar -->
+  <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white dark:bg-slate-900 p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs shrink-0">
+    
+    <!-- Filter Tabs -->
+    <div class="flex items-center gap-1.5 overflow-x-auto">
+      <button
+        type="button"
+        (click)="currentFilter.set('all')"
+        [class.bg-slate-900]="currentFilter() === 'all'"
+        [class.text-white]="currentFilter() === 'all'"
+        [class.dark:bg-white]="currentFilter() === 'all'"
+        [class.dark:text-slate-950]="currentFilter() === 'all'"
+        [class.bg-slate-100]="currentFilter() !== 'all'"
+        [class.dark:bg-slate-800]="currentFilter() !== 'all'"
+        [class.text-slate-700]="currentFilter() !== 'all'"
+        [class.dark:text-slate-300]="currentFilter() !== 'all'"
+        class="px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+      >
+        <span>All Active</span>
+        <span class="px-1.5 py-0.5 rounded-full text-[10px] bg-slate-700 text-white dark:bg-slate-200 dark:text-slate-900">
+          {{ allActiveOrders().length }}
+        </span>
+      </button>
+
+      <button
+        type="button"
+        (click)="currentFilter.set('pending')"
+        [class.bg-amber-500]="currentFilter() === 'pending'"
+        [class.text-slate-950]="currentFilter() === 'pending'"
+        [class.font-extrabold]="currentFilter() === 'pending'"
+        [class.bg-slate-100]="currentFilter() !== 'pending'"
+        [class.dark:bg-slate-800]="currentFilter() !== 'pending'"
+        [class.text-slate-700]="currentFilter() !== 'pending'"
+        [class.dark:text-slate-300]="currentFilter() !== 'pending'"
+        class="px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+      >
+        <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+        <span>New (Pending)</span>
+        <span class="px-1.5 py-0.5 rounded-full text-[10px] bg-amber-200 text-amber-900">
+          {{ pendingOrders().length }}
+        </span>
+      </button>
+
+      <button
+        type="button"
+        (click)="currentFilter.set('preparing')"
+        [class.bg-blue-600]="currentFilter() === 'preparing'"
+        [class.text-white]="currentFilter() === 'preparing'"
+        [class.bg-slate-100]="currentFilter() !== 'preparing'"
+        [class.dark:bg-slate-800]="currentFilter() !== 'preparing'"
+        [class.text-slate-700]="currentFilter() !== 'preparing'"
+        [class.dark:text-slate-300]="currentFilter() !== 'preparing'"
+        class="px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+      >
+        <span>Cooking</span>
+        <span class="px-1.5 py-0.5 rounded-full text-[10px] bg-blue-200 text-blue-950">
+          {{ preparingOrders().length }}
+        </span>
+      </button>
+
+      <button
+        type="button"
+        (click)="currentFilter.set('ready')"
+        [class.bg-emerald-600]="currentFilter() === 'ready'"
+        [class.text-white]="currentFilter() === 'ready'"
+        [class.bg-slate-100]="currentFilter() !== 'ready'"
+        [class.dark:bg-slate-800]="currentFilter() !== 'ready'"
+        [class.text-slate-700]="currentFilter() !== 'ready'"
+        [class.dark:text-slate-300]="currentFilter() !== 'ready'"
+        class="px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+      >
+        <span>Ready / Pickup</span>
+        <span class="px-1.5 py-0.5 rounded-full text-[10px] bg-emerald-200 text-emerald-950">
+          {{ readyOrders().length }}
+        </span>
+      </button>
+    </div>
+
+    <!-- Right Side: Recall Last Ticket -->
+    <div class="flex items-center gap-2">
+      @if (lastBumpedOrder()) {
+        <button
+          type="button"
+          (click)="recallLastBumped()"
+          class="px-3.5 py-2 rounded-xl bg-orange-100 hover:bg-orange-200 dark:bg-orange-950/60 dark:hover:bg-orange-900 text-orange-700 dark:text-orange-300 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+          title="Undo last bumped order"
+        >
+          <app-icon name="rotate-ccw" [size]="14"></app-icon>
+          <span>Recall Ticket {{ lastBumpedOrder()?.orderNumber }}</span>
+        </button>
+      }
+    </div>
+
+  </div>
+
+  <!-- Tickets Grid View (Scrollable) -->
+  <div class="flex-1 overflow-y-auto pr-1">
+    @if (displayedOrders().length === 0) {
+      <div class="flex flex-col items-center justify-center h-80 text-center p-8 bg-white dark:bg-slate-900 rounded-3xl border border-dashed border-slate-200 dark:border-slate-800">
+        <div class="w-16 h-16 rounded-full bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mb-3">
+          <app-icon name="check-circle" [size]="32"></app-icon>
+        </div>
+        <h3 class="font-bold text-lg text-slate-900 dark:text-white">Kitchen queue is clear!</h3>
+        <p class="text-xs text-slate-500 max-w-sm mt-1">All orders have been prepared and bumped. New orders from POS will ring here instantly.</p>
+      </div>
+    } @else {
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3.5">
+        @for (order of displayedOrders(); track order.id) {
+          <app-ticket-card
+            [order]="order"
+            (advanceStatus)="onAdvanceStatus($event)"
+          ></app-ticket-card>
+        }
+      </div>
+    }
+  </div>
+
+</div>

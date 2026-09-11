@@ -1,0 +1,157 @@
+<div class="max-w-7xl mx-auto h-[calc(100vh-68px)] p-3 md:p-4 flex flex-col space-y-3 overflow-hidden">
+  
+  <!-- Top Actions Bar -->
+  <div class="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 shrink-0">
+    
+    <div>
+      <h2 class="font-bold text-lg text-slate-900 dark:text-white">Menu & 86 (Stock) Management</h2>
+      <p class="text-xs text-slate-500">Toggle sold-out items instantly or manage pricing and dishes</p>
+    </div>
+
+    <div class="flex items-center gap-2">
+      <!-- Reset Demo Menu -->
+      <button
+        type="button"
+        (click)="resetMenu()"
+        class="px-3.5 py-2 rounded-xl text-xs font-semibold border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors flex items-center gap-1.5 cursor-pointer"
+      >
+        <app-icon name="rotate-ccw" [size]="14"></app-icon>
+        <span>Reset Defaults</span>
+      </button>
+
+      <!-- Add New Dish -->
+      <button
+        type="button"
+        (click)="openAddModal()"
+        class="px-4 py-2 rounded-xl text-xs font-bold bg-orange-600 hover:bg-orange-500 text-white shadow-md shadow-orange-600/20 flex items-center gap-1.5 transition-all cursor-pointer"
+      >
+        <app-icon name="plus" [size]="16"></app-icon>
+        <span>Add New Dish</span>
+      </button>
+    </div>
+
+  </div>
+
+  <!-- Categories Filter Tabs -->
+  <div class="flex items-center gap-1.5 overflow-x-auto pb-1 shrink-0">
+    @for (cat of categories(); track cat.id) {
+      <button
+        type="button"
+        (click)="selectedCategory.set(cat.id)"
+        [class.bg-slate-900]="selectedCategory() === cat.id"
+        [class.text-white]="selectedCategory() === cat.id"
+        [class.dark:bg-white]="selectedCategory() === cat.id"
+        [class.dark:text-slate-950]="selectedCategory() === cat.id"
+        [class.bg-white]="selectedCategory() !== cat.id"
+        [class.dark:bg-slate-800]="selectedCategory() !== cat.id"
+        [class.text-slate-700]="selectedCategory() !== cat.id"
+        [class.dark:text-slate-300]="selectedCategory() !== cat.id"
+        class="px-3.5 py-1.5 rounded-xl text-xs font-semibold border border-slate-200 dark:border-slate-700 transition-all cursor-pointer whitespace-nowrap"
+      >
+        {{ cat.name }}
+      </button>
+    }
+  </div>
+
+  <!-- Items Grid -->
+  <div class="flex-1 overflow-y-auto pr-1">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+      @for (item of displayedItems(); track item.id) {
+        <div
+          class="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs flex flex-col justify-between transition-all"
+          [class.border-rose-300]="!item.isAvailable"
+          [class.dark:border-rose-900]="!item.isAvailable"
+          [class.bg-rose-50/20]="!item.isAvailable"
+        >
+          
+          <!-- Dish Info Header -->
+          <div>
+            <div class="flex items-start justify-between gap-2">
+              <div class="flex items-start gap-2.5">
+                <span class="text-3xl p-1 bg-slate-50 dark:bg-slate-800 rounded-xl">
+                  {{ item.emoji || '🍛' }}
+                </span>
+                <div>
+                  <h4 class="font-bold text-sm text-slate-900 dark:text-white leading-tight">
+                    {{ item.name }}
+                  </h4>
+                  @if (item.chineseName) {
+                    <p class="text-xs text-orange-600 dark:text-orange-400 font-medium">
+                      {{ item.chineseName }}
+                    </p>
+                  }
+                  <span class="text-sm font-black font-mono text-slate-900 dark:text-white mt-1 block">
+                    \${{ item.basePrice.toFixed(2) }}
+                  </span>
+                </div>
+              </div>
+
+              <!-- 86 Toggle Switch -->
+              <div class="flex flex-col items-end gap-1">
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    [checked]="item.isAvailable"
+                    (change)="toggleStock(item.id)"
+                    class="sr-only peer"
+                  />
+                  <div class="w-11 h-6 bg-rose-500 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+                </label>
+                <span class="text-[10px] font-bold uppercase tracking-wider"
+                  [ngClass]="item.isAvailable ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'">
+                  {{ item.isAvailable ? 'In Stock' : '86 / Sold Out' }}
+                </span>
+              </div>
+            </div>
+
+            <p class="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 mt-2">
+              {{ item.description }}
+            </p>
+          </div>
+
+          <!-- Modifiers summary & Edit/Delete actions -->
+          <div class="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+            <div class="text-[11px] text-slate-400">
+              @if (item.modifierGroups && item.modifierGroups.length > 0) {
+                <span>{{ item.modifierGroups.length }} modifier {{ item.modifierGroups.length > 1 ? 'groups' : 'group' }}</span>
+              } @else {
+                <span>Standard portion</span>
+              }
+            </div>
+
+            <div class="flex items-center gap-1">
+              <button
+                type="button"
+                (click)="openEditModal(item)"
+                class="p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-orange-600 transition-colors"
+                title="Edit Dish"
+              >
+                <app-icon name="sliders" [size]="16"></app-icon>
+              </button>
+
+              <button
+                type="button"
+                (click)="deleteDish(item)"
+                class="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition-colors"
+                title="Delete Dish"
+              >
+                <app-icon name="trash" [size]="16"></app-icon>
+              </button>
+            </div>
+          </div>
+
+        </div>
+      }
+    </div>
+  </div>
+
+  <!-- Item Editor Modal -->
+  @if (showEditorModal()) {
+    <app-item-editor-modal
+      [item]="editingItem()"
+      (close)="showEditorModal.set(false)"
+      (save)="onSaveItem($event)"
+    ></app-item-editor-modal>
+  }
+
+</div>

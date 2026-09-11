@@ -1,0 +1,203 @@
+<div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col h-full overflow-hidden">
+  
+  <!-- Cart Header & Dine-In / Takeaway Toggle -->
+  <div class="p-4 border-b border-slate-100 dark:border-slate-800 space-y-3">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <span class="p-1.5 rounded-lg bg-orange-100 dark:bg-orange-950 text-orange-600 dark:text-orange-400">
+          <app-icon name="shopping-bag" [size]="18"></app-icon>
+        </span>
+        <h3 class="font-bold text-base text-slate-900 dark:text-white">Current Order</h3>
+      </div>
+      
+      @if (cartItems().length > 0) {
+        <button
+          type="button"
+          (click)="clearCart()"
+          class="text-xs text-rose-500 hover:text-rose-600 font-semibold flex items-center gap-1 hover:underline cursor-pointer"
+        >
+          <app-icon name="trash" [size]="14"></app-icon>
+          <span>Clear</span>
+        </button>
+      }
+    </div>
+
+    <!-- Dine In / Takeaway Segmented Control -->
+    <div class="grid grid-cols-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl gap-1">
+      <button
+        type="button"
+        (click)="setDiningOption('dine_in')"
+        [class.bg-white]="diningOption() === 'dine_in'"
+        [class.dark:bg-slate-700]="diningOption() === 'dine_in'"
+        [class.text-orange-600]="diningOption() === 'dine_in'"
+        [class.dark:text-orange-400]="diningOption() === 'dine_in'"
+        [class.shadow-sm]="diningOption() === 'dine_in'"
+        [class.font-bold]="diningOption() === 'dine_in'"
+        class="py-1.5 px-3 rounded-lg text-xs font-medium text-slate-600 dark:text-slate-300 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+      >
+        <span>🍽️</span>
+        <span>Dine-In</span>
+      </button>
+
+      <button
+        type="button"
+        (click)="setDiningOption('takeaway')"
+        [class.bg-white]="diningOption() === 'takeaway'"
+        [class.dark:bg-slate-700]="diningOption() === 'takeaway'"
+        [class.text-orange-600]="diningOption() === 'takeaway'"
+        [class.dark:text-orange-400]="diningOption() === 'takeaway'"
+        [class.shadow-sm]="diningOption() === 'takeaway'"
+        [class.font-bold]="diningOption() === 'takeaway'"
+        class="py-1.5 px-3 rounded-lg text-xs font-medium text-slate-600 dark:text-slate-300 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+      >
+        <span>🥡</span>
+        <span>Takeaway</span>
+      </button>
+    </div>
+
+    <!-- Table / Buzzer Number Input -->
+    <div class="flex items-center gap-2">
+      <input
+        type="text"
+        [ngModel]="tableOrBuzzerNumber()"
+        (ngModelChange)="onTableOrBuzzerChange($event)"
+        [placeholder]="diningOption() === 'dine_in' ? 'Table No. (e.g. Table 04)' : 'Buzzer / Pager (e.g. #12)'"
+        class="flex-1 px-3 py-1.5 text-xs rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500"
+      />
+    </div>
+  </div>
+
+  <!-- Cart Items List (Scrollable) -->
+  <div class="flex-1 overflow-y-auto p-3 space-y-2.5">
+    @if (cartItems().length === 0) {
+      <div class="flex flex-col items-center justify-center h-48 text-center text-slate-400 dark:text-slate-500 p-4">
+        <app-icon name="shopping-bag" [size]="36" class="opacity-40 mb-2"></app-icon>
+        <p class="font-semibold text-sm">Cart is empty</p>
+        <p class="text-xs mt-0.5">Select items from the menu to start order</p>
+      </div>
+    } @else {
+      @for (item of cartItems(); track item.id) {
+        <div class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700 flex flex-col gap-2">
+          
+          <div class="flex items-start justify-between gap-2">
+            <div class="flex-1 min-w-0">
+              <div class="font-bold text-xs text-slate-900 dark:text-white leading-tight">
+                {{ item.name }}
+              </div>
+              @if (item.chineseName) {
+                <div class="text-[10px] text-slate-500 dark:text-slate-400">
+                  {{ item.chineseName }}
+                </div>
+              }
+              
+              <!-- Selected Modifiers -->
+              @for (mod of item.selectedModifiers; track mod.optionId) {
+                <div class="text-[10px] text-slate-600 dark:text-slate-400 mt-0.5 flex items-center gap-1">
+                  <span class="w-1 h-1 rounded-full bg-orange-400"></span>
+                  <span>{{ mod.optionName }}</span>
+                  @if (mod.priceDelta > 0) {
+                    <span class="text-orange-600 dark:text-orange-400 font-mono">(+\${{ mod.priceDelta.toFixed(2) }})</span>
+                  }
+                </div>
+              }
+
+              <!-- Special notes -->
+              @if (item.specialNotes) {
+                <div class="text-[10px] text-amber-600 dark:text-amber-400 italic mt-0.5">
+                  "{{ item.specialNotes }}"
+                </div>
+              }
+            </div>
+
+            <div class="text-right">
+              <div class="font-bold text-xs text-slate-900 dark:text-white font-mono">
+                \${{ item.totalPrice.toFixed(2) }}
+              </div>
+            </div>
+          </div>
+
+          <!-- Quantity Controls & Trash -->
+          <div class="flex items-center justify-between pt-1 border-t border-slate-200/60 dark:border-slate-700/60">
+            <button
+              type="button"
+              (click)="removeItem(item.id)"
+              class="text-slate-400 hover:text-rose-500 p-1 rounded-md transition-colors"
+              title="Remove Item"
+            >
+              <app-icon name="trash" [size]="14"></app-icon>
+            </button>
+
+            <div class="flex items-center gap-2 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg px-1.5 py-0.5 shadow-sm">
+              <button
+                type="button"
+                (click)="updateQty(item.id, -1)"
+                class="w-5 h-5 flex items-center justify-center text-slate-600 dark:text-slate-300 hover:text-orange-600"
+              >
+                <app-icon name="minus" [size]="12"></app-icon>
+              </button>
+              <span class="text-xs font-bold text-slate-900 dark:text-white w-4 text-center">
+                {{ item.quantity }}
+              </span>
+              <button
+                type="button"
+                (click)="updateQty(item.id, 1)"
+                class="w-5 h-5 flex items-center justify-center text-slate-600 dark:text-slate-300 hover:text-orange-600"
+              >
+                <app-icon name="plus" [size]="12"></app-icon>
+              </button>
+            </div>
+          </div>
+
+        </div>
+      }
+    }
+  </div>
+
+  <!-- Bill Breakdown & Checkout Button -->
+  <div class="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/40 space-y-3">
+    
+    <div class="space-y-1.5 text-xs text-slate-600 dark:text-slate-400">
+      <div class="flex justify-between">
+        <span>Subtotal</span>
+        <span class="font-mono font-medium text-slate-900 dark:text-white">\${{ subtotal().toFixed(2) }}</span>
+      </div>
+      @if (takeawayFee() > 0) {
+        <div class="flex justify-between">
+          <span>Takeaway Packaging Fee</span>
+          <span class="font-mono font-medium text-slate-900 dark:text-white">\${{ takeawayFee().toFixed(2) }}</span>
+        </div>
+      }
+      @if (tax() > 0) {
+        <div class="flex justify-between">
+          <span>GST</span>
+          <span class="font-mono font-medium text-slate-900 dark:text-white">\${{ tax().toFixed(2) }}</span>
+        </div>
+      }
+      <div class="flex justify-between text-base font-extrabold text-slate-900 dark:text-white pt-2 border-t border-slate-200 dark:border-slate-700">
+        <span>Total (SGD)</span>
+        <span class="text-orange-600 dark:text-orange-400 font-mono">\${{ total().toFixed(2) }}</span>
+      </div>
+    </div>
+
+    <!-- Checkout Action Button -->
+    <button
+      type="button"
+      (click)="onCheckout()"
+      [disabled]="cartItems().length === 0"
+      [class.opacity-50]="cartItems().length === 0"
+      [class.cursor-not-allowed]="cartItems().length === 0"
+      class="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white font-bold text-sm shadow-lg shadow-orange-600/25 flex items-center justify-between active:scale-[0.99] transition-all cursor-pointer"
+    >
+      <div class="flex items-center gap-2">
+        <app-icon name="credit-card" [size]="18"></app-icon>
+        <span>Proceed to Payment</span>
+      </div>
+      <div class="flex items-center gap-1 font-mono text-base font-extrabold">
+        <span>\${{ total().toFixed(2) }}</span>
+        <app-icon name="arrow-right" [size]="16"></app-icon>
+      </div>
+    </button>
+
+  </div>
+
+</div>

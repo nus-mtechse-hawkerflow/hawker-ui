@@ -1,0 +1,204 @@
+<header class="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-40 px-4 py-2.5 transition-colors shadow-xs">
+  <div class="max-w-7xl mx-auto flex items-center justify-between gap-3">
+    
+    <!-- Stall Brand & Location with Quick Stall Switcher Dropdown Trigger -->
+    <div class="relative">
+      <button
+        type="button"
+        (click)="toggleStallDropdown()"
+        class="flex items-center gap-2.5 shrink-0 text-left p-1.5 -m-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800/80 transition-all cursor-pointer group"
+      >
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 to-orange-500 flex items-center justify-center text-white shadow-md shadow-orange-500/20 shrink-0 text-lg">
+          {{ currentStall().emoji || '🔥' }}
+        </div>
+        <div class="flex flex-col">
+          <div class="flex items-center gap-1.5 flex-nowrap">
+            <h1 class="font-bold text-base md:text-lg text-slate-900 dark:text-white tracking-tight leading-none whitespace-nowrap group-hover:text-orange-600 dark:group-hover:text-orange-400 transition-colors">
+              {{ settings().stallName }}
+            </h1>
+            <span class="inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] font-bold bg-orange-100 text-orange-800 dark:bg-orange-950 dark:text-orange-300 whitespace-nowrap shrink-0">
+              {{ settings().unitNumber }}
+            </span>
+            <app-icon name="chevron-down" [size]="14" class="text-slate-400 group-hover:text-orange-500 transition-transform" [class.rotate-180]="isDropdownOpen()"></app-icon>
+          </div>
+          <p class="text-xs text-slate-500 dark:text-slate-400 font-medium leading-normal mt-0.5 whitespace-nowrap">
+            {{ settings().hawkerCentreName }}
+          </p>
+        </div>
+      </button>
+
+      <!-- Stall Switcher Popover Menu -->
+      @if (isDropdownOpen()) {
+        <!-- Backdrop -->
+        <div (click)="isDropdownOpen.set(false)" class="fixed inset-0 z-40"></div>
+
+        <div class="absolute left-0 top-full mt-2 w-80 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 py-3 px-3 z-50 animate-fade-in space-y-3">
+          
+          <div class="px-2 pb-2 border-b border-slate-100 dark:border-slate-800">
+            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Active Stall Profile</p>
+            <div class="flex items-center justify-between mt-1">
+              <div>
+                <h3 class="font-bold text-sm text-slate-900 dark:text-white">{{ currentStall().stallName }}</h3>
+                <p class="text-xs text-slate-500 dark:text-slate-400 font-mono">{{ currentStall().ownerName }} • {{ currentStall().email }}</p>
+              </div>
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                Active
+              </span>
+            </div>
+          </div>
+
+          <!-- Switch Stall List -->
+          <div class="space-y-1">
+            <p class="px-2 text-[11px] font-bold text-slate-400 uppercase tracking-wider">Switch Stall Account</p>
+            <div class="max-h-48 overflow-y-auto space-y-1 pr-1">
+              @for (stall of allStalls(); track stall.id) {
+                <button
+                  type="button"
+                  (click)="onSwitchStall(stall.id)"
+                  [class.bg-orange-50]="stall.id === currentStall().id"
+                  [class.dark:bg-orange-950/40]="stall.id === currentStall().id"
+                  [class.border-orange-200]="stall.id === currentStall().id"
+                  [class.dark:border-orange-800/60]="stall.id === currentStall().id"
+                  class="w-full flex items-center justify-between p-2 rounded-xl border border-transparent hover:border-slate-200 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-left transition-all cursor-pointer"
+                >
+                  <div class="flex items-center gap-2.5 min-w-0">
+                    <span class="text-xl">{{ stall.emoji }}</span>
+                    <div class="min-w-0">
+                      <p class="text-xs font-bold text-slate-900 dark:text-white truncate">{{ stall.stallName }}</p>
+                      <p class="text-[10px] text-slate-500 dark:text-slate-400 truncate">{{ stall.unitNumber }} • {{ stall.hawkerCentreName }}</p>
+                    </div>
+                  </div>
+                  @if (stall.id === currentStall().id) {
+                    <app-icon name="check" [size]="16" class="text-orange-600 dark:text-orange-400 shrink-0"></app-icon>
+                  }
+                </button>
+              }
+            </div>
+          </div>
+
+          <!-- Footer Actions -->
+          <div class="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
+            <button
+              type="button"
+              (click)="goToLogin()"
+              class="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-bold text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
+            >
+              <app-icon name="plus" [size]="14"></app-icon>
+              <span>Add / Switch Stall</span>
+            </button>
+
+            <button
+              type="button"
+              (click)="onLogout()"
+              class="flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-rose-50 dark:bg-rose-950/50 hover:bg-rose-100 dark:hover:bg-rose-900/60 text-xs font-bold text-rose-600 dark:text-rose-400 transition-colors cursor-pointer"
+            >
+              <app-icon name="log-out" [size]="14"></app-icon>
+              <span>Logout</span>
+            </button>
+          </div>
+
+        </div>
+      }
+    </div>
+
+    <!-- Navigation Tabs -->
+    <nav class="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-800/70 rounded-xl border border-slate-200/80 dark:border-slate-700/60 overflow-x-auto">
+      
+      <!-- POS Tab -->
+      <a
+        routerLink="/pos"
+        routerLinkActive="bg-white dark:bg-slate-900 text-orange-600 dark:text-orange-400 shadow-sm font-semibold"
+        [routerLinkActiveOptions]="{ exact: false }"
+        class="flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-all whitespace-nowrap"
+      >
+        <app-icon name="utensils" [size]="18"></app-icon>
+        <span>POS Cashier</span>
+        @if (cartCount() > 0) {
+          <span class="px-1.5 py-0.5 text-xs font-bold rounded-full bg-orange-500 text-white animate-pulse">
+            {{ cartCount() }}
+          </span>
+        }
+      </a>
+
+      <!-- KDS Tab -->
+      <a
+        routerLink="/kds"
+        routerLinkActive="bg-white dark:bg-slate-900 text-orange-600 dark:text-orange-400 shadow-sm font-semibold"
+        class="flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-all whitespace-nowrap relative"
+      >
+        <app-icon name="clock" [size]="18"></app-icon>
+        <span>Kitchen (KDS)</span>
+        @if (activeKdsCount() > 0) {
+          <span class="px-1.5 py-0.5 text-xs font-bold rounded-full bg-amber-500 text-slate-950">
+            {{ activeKdsCount() }}
+          </span>
+        }
+      </a>
+
+      <!-- Order History Tab -->
+      <a
+        routerLink="/orders"
+        routerLinkActive="bg-white dark:bg-slate-900 text-orange-600 dark:text-orange-400 shadow-sm font-semibold"
+        class="flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-all whitespace-nowrap"
+      >
+        <app-icon name="receipt" [size]="18"></app-icon>
+        <span>Orders & Receipts</span>
+      </a>
+
+      <!-- Menu & 86 Tab -->
+      <a
+        routerLink="/menu"
+        routerLinkActive="bg-white dark:bg-slate-900 text-orange-600 dark:text-orange-400 shadow-sm font-semibold"
+        class="flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-all whitespace-nowrap"
+      >
+        <app-icon name="sliders" [size]="18"></app-icon>
+        <span>Menu & 86</span>
+        @if (soldOutCount() > 0) {
+          <span class="px-1.5 py-0.5 text-xs font-bold rounded-full bg-rose-500 text-white">
+            {{ soldOutCount() }} 86'd
+          </span>
+        }
+      </a>
+
+      <!-- Analytics Tab -->
+      <a
+        routerLink="/analytics"
+        routerLinkActive="bg-white dark:bg-slate-900 text-orange-600 dark:text-orange-400 shadow-sm font-semibold"
+        class="flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-all whitespace-nowrap"
+      >
+        <app-icon name="bar-chart" [size]="18"></app-icon>
+        <span>Shift & Analytics</span>
+      </a>
+    </nav>
+
+    <!-- Right Quick Actions: Clock, Sound, Theme -->
+    <div class="flex items-center gap-2 shrink-0">
+      
+      <!-- Live Clock -->
+      <div class="hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 rounded-lg text-xs font-mono font-medium text-slate-700 dark:text-slate-300 whitespace-nowrap">
+        <app-icon name="clock" [size]="14" class="text-orange-500"></app-icon>
+        <span>{{ currentTime() }}</span>
+      </div>
+
+      <!-- Sound Toggle -->
+      <button
+        (click)="toggleSound()"
+        [title]="settings().soundAlertsEnabled ? 'Mute Audio Alerts' : 'Enable Audio Alerts'"
+        class="p-2 rounded-lg text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+      >
+        <app-icon [name]="settings().soundAlertsEnabled ? 'volume' : 'volume-x'" [size]="20"></app-icon>
+      </button>
+
+      <!-- Theme Toggle -->
+      <button
+        (click)="toggleTheme()"
+        [title]="settings().isDarkTheme ? 'Switch to Light Mode' : 'Switch to Dark Mode'"
+        class="p-2 rounded-lg text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+      >
+        <app-icon [name]="settings().isDarkTheme ? 'sun' : 'moon'" [size]="20"></app-icon>
+      </button>
+
+    </div>
+
+  </div>
+</header>

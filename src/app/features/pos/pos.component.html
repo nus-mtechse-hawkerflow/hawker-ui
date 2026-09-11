@@ -1,0 +1,59 @@
+<div class="max-w-7xl mx-auto h-[calc(100vh-68px)] p-3 md:p-4 flex flex-col md:flex-row gap-4 overflow-hidden">
+  
+  <!-- Left Side: Menu Grid View -->
+  <div class="flex-1 h-full min-w-0 flex flex-col overflow-hidden">
+    <app-menu-grid (itemSelect)="onItemSelect($event)"></app-menu-grid>
+  </div>
+
+  <!-- Right Side: Order Cart Sidebar -->
+  <div class="w-full md:w-80 lg:w-96 shrink-0 h-[45vh] md:h-full flex flex-col">
+    <app-cart (checkout)="openPaymentModal()"></app-cart>
+  </div>
+
+  <!-- Item Modifier Modal -->
+  @if (selectedItemForModifier()) {
+    <app-modifier-modal
+      [item]="selectedItemForModifier()"
+      (close)="selectedItemForModifier.set(null)"
+      (add)="onAddCustomizedItem($event)"
+    ></app-modifier-modal>
+  }
+
+  <!-- Payment / Checkout Modal -->
+  @if (showPaymentModal()) {
+    <app-payment-modal
+      [totalAmount]="cartTotal()"
+      (close)="showPaymentModal.set(false)"
+      (paymentComplete)="onPaymentComplete($event)"
+    ></app-payment-modal>
+  }
+
+  <!-- Thermal Receipt Preview Modal -->
+  @if (recentOrderForReceipt()) {
+    <app-receipt-modal
+      [order]="recentOrderForReceipt()"
+      (close)="recentOrderForReceipt.set(null)"
+    ></app-receipt-modal>
+  }
+
+  <!-- Success Notification Toast after Order Submission -->
+  @if (showSuccessBanner()) {
+    <div class="fixed bottom-5 right-5 z-40 bg-slate-900 text-white dark:bg-white dark:text-slate-950 px-4 py-3 rounded-2xl shadow-xl flex items-center gap-3 border border-slate-700 animate-slide-up">
+      <div class="w-8 h-8 rounded-xl bg-emerald-500 text-white flex items-center justify-center font-bold">
+        <app-icon name="check" [size]="18"></app-icon>
+      </div>
+      <div>
+        <div class="font-bold text-xs">Order Sent to Kitchen KDS!</div>
+        <div class="text-[11px] opacity-75">Ticket #{{ lastOrderNumber() }} in preparation</div>
+      </div>
+      <button
+        type="button"
+        (click)="viewLastReceipt()"
+        class="ml-2 px-3 py-1.5 text-xs font-bold rounded-lg bg-orange-500 text-white hover:bg-orange-600 transition-colors cursor-pointer"
+      >
+        Receipt
+      </button>
+    </div>
+  }
+
+</div>

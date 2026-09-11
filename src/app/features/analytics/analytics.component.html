@@ -1,0 +1,296 @@
+<div class="max-w-7xl mx-auto h-[calc(100vh-68px)] p-3 md:p-4 flex flex-col space-y-4 overflow-y-auto">
+  
+  <!-- Top Title & Shift Actions -->
+  <div class="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+    <div>
+      <h2 class="font-bold text-lg text-slate-900 dark:text-white">Shift Summary & Daily Sales</h2>
+      <p class="text-xs text-slate-500">Live POS sales velocity, payment reconciliation, and kitchen metrics</p>
+    </div>
+
+    <div class="flex items-center gap-2">
+      <!-- Reset Orders -->
+      <button
+        type="button"
+        (click)="resetOrdersData()"
+        class="px-3.5 py-2 rounded-xl text-xs font-semibold border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors flex items-center gap-1.5 cursor-pointer"
+      >
+        <app-icon name="rotate-ccw" [size]="14"></app-icon>
+        <span>Reset Demo Orders</span>
+      </button>
+
+      <!-- Close Shift & Print Report -->
+      <button
+        type="button"
+        (click)="showCloseShiftModal.set(true)"
+        class="px-4 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white shadow-md shadow-orange-600/20 flex items-center gap-1.5 transition-all cursor-pointer"
+      >
+        <app-icon name="printer" [size]="16"></app-icon>
+        <span>End Shift Reconciliation</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- KPI Stat Cards -->
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+    
+    <!-- Gross Sales -->
+    <div class="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs flex flex-col justify-between">
+      <div class="flex items-center justify-between">
+        <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Gross Sales</span>
+        <span class="p-2 rounded-xl bg-orange-100 dark:bg-orange-950 text-orange-600 dark:text-orange-400">
+          <app-icon name="dollar-sign" [size]="18"></app-icon>
+        </span>
+      </div>
+      <div class="mt-2">
+        <div class="text-2xl font-black font-mono text-slate-900 dark:text-white">
+          \${{ summary().grossSales.toFixed(2) }}
+        </div>
+        <div class="text-[11px] text-emerald-600 font-semibold mt-0.5 flex items-center gap-1">
+          <span>{{ summary().totalOrders }} total orders today</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Average Ticket Value -->
+    <div class="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs flex flex-col justify-between">
+      <div class="flex items-center justify-between">
+        <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Avg Order Value</span>
+        <span class="p-2 rounded-xl bg-blue-100 dark:bg-blue-950 text-blue-600 dark:text-blue-400">
+          <app-icon name="receipt" [size]="18"></app-icon>
+        </span>
+      </div>
+      <div class="mt-2">
+        <div class="text-2xl font-black font-mono text-slate-900 dark:text-white">
+          \${{ summary().avgOrderValue.toFixed(2) }}
+        </div>
+        <div class="text-[11px] text-slate-500 mt-0.5">
+          Across {{ summary().completedOrders }} completed
+        </div>
+      </div>
+    </div>
+
+    <!-- Avg Kitchen Turnaround -->
+    <div class="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs flex flex-col justify-between">
+      <div class="flex items-center justify-between">
+        <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Avg Prep Speed</span>
+        <span class="p-2 rounded-xl bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400">
+          <app-icon name="clock" [size]="18"></app-icon>
+        </span>
+      </div>
+      <div class="mt-2">
+        <div class="text-2xl font-black font-mono text-slate-900 dark:text-white">
+          {{ summary().avgPrepTimeMins }} mins
+        </div>
+        <div class="text-[11px] text-emerald-600 font-semibold mt-0.5">
+          Fast turnaround target: < 5m
+        </div>
+      </div>
+    </div>
+
+    <!-- Takeaway Fees Collected -->
+    <div class="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs flex flex-col justify-between">
+      <div class="flex items-center justify-between">
+        <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Takeaway Fees</span>
+        <span class="p-2 rounded-xl bg-purple-100 dark:bg-purple-950 text-purple-600 dark:text-purple-400">
+          <app-icon name="shopping-bag" [size]="18"></app-icon>
+        </span>
+      </div>
+      <div class="mt-2">
+        <div class="text-2xl font-black font-mono text-slate-900 dark:text-white">
+          \${{ summary().takeawayFeesCollected.toFixed(2) }}
+        </div>
+        <div class="text-[11px] text-slate-500 mt-0.5">
+          Packaging contribution
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Main Analytics Sections: Payment Breakdown & Top Dishes -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+    
+    <!-- Payment Methods Reconciliation -->
+    <div class="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
+      <div class="flex items-center justify-between">
+        <h3 class="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+          <app-icon name="banknote" [size]="18" class="text-orange-500"></app-icon>
+          <span>Payment Methods Distribution</span>
+        </h3>
+        <span class="text-xs text-slate-400 font-mono">100% Reconciled</span>
+      </div>
+
+      <div class="space-y-3">
+        @for (p of summary().paymentBreakdown; track p.method) {
+          <div class="space-y-1.5">
+            <div class="flex items-center justify-between text-xs">
+              <span class="font-bold uppercase tracking-wider text-slate-700 dark:text-slate-200">
+                {{ p.method }} ({{ p.count }} txn)
+              </span>
+              <div class="flex items-center gap-2 font-mono">
+                <span class="font-black text-slate-900 dark:text-white">\${{ p.totalAmount.toFixed(2) }}</span>
+                <span class="text-slate-400 font-medium w-12 text-right">{{ p.percentage }}%</span>
+              </div>
+            </div>
+
+            <!-- Progress Bar -->
+            <div class="h-2.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+              <div
+                class="h-full rounded-full transition-all duration-500"
+                [style.width.%]="p.percentage"
+                [ngClass]="{
+                  'bg-purple-600': p.method === 'paynow',
+                  'bg-emerald-500': p.method === 'cash',
+                  'bg-rose-500': p.method === 'nets',
+                  'bg-blue-600': p.method === 'card'
+                }"
+              ></div>
+            </div>
+          </div>
+        }
+      </div>
+    </div>
+
+    <!-- Top Selling Dishes Leaderboard -->
+    <div class="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
+      <div class="flex items-center justify-between">
+        <h3 class="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+          <app-icon name="flame" [size]="18" class="text-orange-500"></app-icon>
+          <span>Top Selling Dishes Today</span>
+        </h3>
+        <span class="text-xs text-slate-400">By Quantity Sold</span>
+      </div>
+
+      <div class="space-y-2.5">
+        @for (item of summary().topItems; track item.menuItemId; let idx = $index) {
+          <div class="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700">
+            <div class="flex items-center gap-3">
+              <span class="w-6 h-6 rounded-lg font-black text-xs flex items-center justify-center"
+                [ngClass]="idx === 0 ? 'bg-amber-400 text-amber-950' : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'">
+                #{{ idx + 1 }}
+              </span>
+              <div>
+                <h4 class="font-bold text-xs text-slate-900 dark:text-white">{{ item.name }}</h4>
+                <span class="text-[10px] text-slate-400">{{ item.quantity }} orders</span>
+              </div>
+            </div>
+
+            <span class="font-mono font-black text-xs text-orange-600 dark:text-orange-400">
+              \${{ item.revenue.toFixed(2) }}
+            </span>
+          </div>
+        }
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Hourly Sales Activity Chart -->
+  <div class="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
+    <div class="flex items-center justify-between">
+      <h3 class="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+        <app-icon name="bar-chart" [size]="18" class="text-orange-500"></app-icon>
+        <span>Hourly Order Velocity</span>
+      </h3>
+      <span class="text-xs text-slate-400">Lunch Peak & Dinner Rush</span>
+    </div>
+
+    <div class="h-44 flex items-end justify-between gap-1 sm:gap-2 pt-6 pb-2 px-2 border-b border-slate-100 dark:border-slate-800">
+      @for (h of hourlyData(); track h.hour) {
+        <div class="flex-1 flex flex-col items-center gap-2 h-full justify-end group">
+          <!-- Bar Tooltip on Hover -->
+          <div class="opacity-0 group-hover:opacity-100 transition-opacity text-[10px] font-mono font-bold bg-slate-900 text-white dark:bg-white dark:text-slate-900 px-1.5 py-0.5 rounded shadow-md pointer-events-none mb-1 whitespace-nowrap">
+            \${{ h.revenue.toFixed(0) }}
+          </div>
+          
+          <!-- Bar -->
+          <div
+            class="w-full max-w-[28px] rounded-t-lg bg-orange-500 group-hover:bg-orange-600 transition-all cursor-pointer min-h-[4px]"
+            [style.height.%]="h.orderCount > 0 ? (h.orderCount * 25) : 4"
+          ></div>
+
+          <!-- Hour Label -->
+          <span class="text-[10px] font-mono text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white">
+            {{ h.hour }}
+          </span>
+        </div>
+      }
+    </div>
+  </div>
+
+  <!-- End of Shift Modal -->
+  @if (showCloseShiftModal()) {
+    <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in">
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] flex flex-col overflow-hidden">
+        
+        <div class="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <app-icon name="printer" [size]="18" class="text-orange-500"></app-icon>
+            <h3 class="font-bold text-base text-slate-900 dark:text-white">Shift Close Report (Z-Report)</h3>
+          </div>
+          <button (click)="showCloseShiftModal.set(false)" class="text-slate-400 hover:text-slate-600 p-1">
+            <app-icon name="x" [size]="18"></app-icon>
+          </button>
+        </div>
+
+        <div class="p-6 overflow-y-auto flex-1 font-mono text-xs text-slate-800 space-y-3 bg-slate-50 dark:bg-slate-950/40">
+          <div class="p-4 bg-white rounded-xl border border-dashed border-slate-300 space-y-2">
+            <div class="text-center font-bold pb-2 border-b border-dashed border-slate-300">
+              <h4 class="text-sm font-black">{{ settings().stallName }}</h4>
+              <p class="text-[10px] text-slate-500">{{ settings().hawkerCentreName }} {{ settings().unitNumber }}</p>
+              <p class="text-[10px] text-slate-500">SHIFT Z-REPORT • {{ summary().shiftDate }}</p>
+            </div>
+
+            <div class="py-2 border-b border-dashed border-slate-300 space-y-1">
+              <div class="flex justify-between">
+                <span>Total Orders:</span>
+                <span class="font-bold">{{ summary().totalOrders }}</span>
+              </div>
+              <div class="flex justify-between">
+                <span>Completed Orders:</span>
+                <span>{{ summary().completedOrders }}</span>
+              </div>
+              <div class="flex justify-between">
+                <span>Cancelled Orders:</span>
+                <span>{{ summary().cancelledOrders }}</span>
+              </div>
+            </div>
+
+            <div class="py-2 border-b border-dashed border-slate-300 space-y-1">
+              @for (p of summary().paymentBreakdown; track p.method) {
+                <div class="flex justify-between uppercase">
+                  <span>{{ p.method }}:</span>
+                  <span class="font-bold">\${{ p.totalAmount.toFixed(2) }}</span>
+                </div>
+              }
+            </div>
+
+            <div class="pt-2 flex justify-between font-black text-sm text-slate-950">
+              <span>GROSS SALES (SGD):</span>
+              <span>\${{ summary().grossSales.toFixed(2) }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="p-4 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 flex justify-end gap-2">
+          <button
+            type="button"
+            (click)="showCloseShiftModal.set(false)"
+            class="px-4 py-2 text-xs font-semibold rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300"
+          >
+            Close
+          </button>
+          <button
+            type="button"
+            (click)="printShiftReport()"
+            class="px-5 py-2 text-xs font-bold rounded-xl bg-orange-600 hover:bg-orange-500 text-white shadow-md shadow-orange-600/20 cursor-pointer"
+          >
+            Print Report
+          </button>
+        </div>
+
+      </div>
+    </div>
+  }
+
+</div>
