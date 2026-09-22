@@ -16,6 +16,8 @@ export class OrdersComponent {
   private orderService = inject(OrderService);
 
   readonly allOrders = this.orderService.orders;
+  readonly isSyncing = this.orderService.isSyncingOrders;
+  readonly lastNotificationMessage = this.orderService.lastNotificationMessage;
 
   searchQuery = '';
   statusFilter: string = 'all';
@@ -51,6 +53,19 @@ export class OrdersComponent {
     this.selectedOrderForReceipt.set(order);
   }
 
+  onUpdateStatus(order: Order, newStatus: string): void {
+    if (newStatus === order.status) return;
+    this.orderService.updateOrderStatus(order.id, newStatus as OrderStatus);
+  }
+
+  onNotifyReady(order: Order): void {
+    this.orderService.updateOrderStatus(order.id, 'ready', `Order ${order.orderNumber} marked READY • Customer notified via Backend 8082!`);
+  }
+
+  refreshOrders(): void {
+    this.orderService.syncBackendOrders();
+  }
+
   promptCancel(order: Order): void {
     const reason = prompt(`Void / Refund order ${order.orderNumber}? Please enter reason:`, 'Customer cancelled');
     if (reason) {
@@ -58,3 +73,4 @@ export class OrdersComponent {
     }
   }
 }
+

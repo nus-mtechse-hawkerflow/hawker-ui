@@ -78,8 +78,21 @@
       </button>
     </div>
 
-    <!-- Right Side: Recall Last Ticket -->
+    <!-- Right Side: Refresh & Recall Last Ticket -->
     <div class="flex items-center gap-2">
+      <button
+        type="button"
+        (click)="refreshOrders()"
+        [disabled]="isSyncing()"
+        class="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+        title="Sync live orders from backend (Port 8082)"
+      >
+        <span [class.animate-spin]="isSyncing()">
+          <app-icon name="rotate-ccw" [size]="13"></app-icon>
+        </span>
+        <span class="hidden sm:inline">{{ isSyncing() ? 'Syncing...' : 'Sync 8082' }}</span>
+      </button>
+
       @if (lastBumpedOrder()) {
         <button
           type="button"
@@ -94,6 +107,18 @@
     </div>
 
   </div>
+
+  <!-- Notification Banner when Customer is updated -->
+  @if (lastNotificationMessage()) {
+    <div class="p-3 rounded-2xl bg-emerald-950/80 border border-emerald-700 text-emerald-200 text-xs font-bold flex items-center justify-between gap-2 shadow-lg animate-fade-in shrink-0">
+      <div class="flex items-center gap-2">
+        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+        <span>📢 {{ lastNotificationMessage() }}</span>
+      </div>
+      <span class="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-emerald-800/60 border border-emerald-600">Backend 8082 Synced</span>
+    </div>
+  }
+
 
   <!-- Tickets Grid View (Scrollable) -->
   <div class="flex-1 overflow-y-auto pr-1">

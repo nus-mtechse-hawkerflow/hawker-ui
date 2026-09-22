@@ -15,8 +15,9 @@
         class="px-3.5 py-2 rounded-xl text-xs font-semibold border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors flex items-center gap-1.5 cursor-pointer"
       >
         <app-icon name="rotate-ccw" [size]="14"></app-icon>
-        <span>Reset Demo Orders</span>
+        <span>Clear Shift Orders</span>
       </button>
+
 
       <!-- Close Shift & Print Report -->
       <button
@@ -43,7 +44,7 @@
       </div>
       <div class="mt-2">
         <div class="text-2xl font-black font-mono text-slate-900 dark:text-white">
-          \${{ summary().grossSales.toFixed(2) }}
+          ${{ summary().grossSales.toFixed(2) }}
         </div>
         <div class="text-[11px] text-emerald-600 font-semibold mt-0.5 flex items-center gap-1">
           <span>{{ summary().totalOrders }} total orders today</span>
@@ -61,7 +62,7 @@
       </div>
       <div class="mt-2">
         <div class="text-2xl font-black font-mono text-slate-900 dark:text-white">
-          \${{ summary().avgOrderValue.toFixed(2) }}
+          ${{ summary().avgOrderValue.toFixed(2) }}
         </div>
         <div class="text-[11px] text-slate-500 mt-0.5">
           Across {{ summary().completedOrders }} completed
@@ -97,7 +98,7 @@
       </div>
       <div class="mt-2">
         <div class="text-2xl font-black font-mono text-slate-900 dark:text-white">
-          \${{ summary().takeawayFeesCollected.toFixed(2) }}
+          ${{ summary().takeawayFeesCollected.toFixed(2) }}
         </div>
         <div class="text-[11px] text-slate-500 mt-0.5">
           Packaging contribution
@@ -128,7 +129,7 @@
                 {{ p.method }} ({{ p.count }} txn)
               </span>
               <div class="flex items-center gap-2 font-mono">
-                <span class="font-black text-slate-900 dark:text-white">\${{ p.totalAmount.toFixed(2) }}</span>
+                <span class="font-black text-slate-900 dark:text-white">${{ p.totalAmount.toFixed(2) }}</span>
                 <span class="text-slate-400 font-medium w-12 text-right">{{ p.percentage }}%</span>
               </div>
             </div>
@@ -176,7 +177,7 @@
             </div>
 
             <span class="font-mono font-black text-xs text-orange-600 dark:text-orange-400">
-              \${{ item.revenue.toFixed(2) }}
+              ${{ item.revenue.toFixed(2) }}
             </span>
           </div>
         }
@@ -200,7 +201,7 @@
         <div class="flex-1 flex flex-col items-center gap-2 h-full justify-end group">
           <!-- Bar Tooltip on Hover -->
           <div class="opacity-0 group-hover:opacity-100 transition-opacity text-[10px] font-mono font-bold bg-slate-900 text-white dark:bg-white dark:text-slate-900 px-1.5 py-0.5 rounded shadow-md pointer-events-none mb-1 whitespace-nowrap">
-            \${{ h.revenue.toFixed(0) }}
+            ${{ h.revenue.toFixed(0) }}
           </div>
           
           <!-- Bar -->
@@ -260,14 +261,14 @@
               @for (p of summary().paymentBreakdown; track p.method) {
                 <div class="flex justify-between uppercase">
                   <span>{{ p.method }}:</span>
-                  <span class="font-bold">\${{ p.totalAmount.toFixed(2) }}</span>
+                  <span class="font-bold">${{ p.totalAmount.toFixed(2) }}</span>
                 </div>
               }
             </div>
 
             <div class="pt-2 flex justify-between font-black text-sm text-slate-950">
               <span>GROSS SALES (SGD):</span>
-              <span>\${{ summary().grossSales.toFixed(2) }}</span>
+              <span>${{ summary().grossSales.toFixed(2) }}</span>
             </div>
           </div>
         </div>

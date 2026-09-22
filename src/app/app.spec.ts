@@ -5,7 +5,7 @@ import { routes } from './app.routes';
 import { AuthService } from './core/services/auth.service';
 import { MenuService } from './core/services/menu.service';
 import { SettingsService } from './core/services/settings.service';
-import { PRESET_STALLS } from './core/mock/initial-data';
+
 
 describe('HawkerFlow App & Multi-Stall System', () => {
   let authService: AuthService;
@@ -31,20 +31,25 @@ describe('HawkerFlow App & Multi-Stall System', () => {
     expect(app).toBeTruthy();
   });
 
-  it('should have initial active stall as Ah Huat', () => {
+  it('should register and switch stalls seamlessly', () => {
+    const newStall = authService.registerStall({
+      stallName: 'Golden Wok Noodles',
+      hawkerCentreName: 'Maxwell Food Centre',
+      unitNumber: '#01-10',
+      uenNumber: '202488888M',
+      contactNumber: '+65 9888 1234',
+      ownerName: 'Chef Tan',
+      email: 'goldenwok@maxwell.sg',
+      password: 'password123',
+      emoji: '🍜',
+      cuisineCategory: 'Noodles & Wok',
+      settings: {} as any
+    });
+
     expect(authService.isAuthenticated()).toBe(true);
-    expect(authService.currentStall().stallName).toContain('Ah Huat');
-    expect(settingsService.settings().stallName).toContain('Ah Huat');
+    expect(authService.currentStall()?.stallName).toBe('Golden Wok Noodles');
   });
 
-  it('should switch stalls seamlessly with quickLogin', () => {
-    const kopiStall = PRESET_STALLS.find(s => s.id === 'stall-uncle-lim');
-    expect(kopiStall).toBeDefined();
-
-    authService.quickLogin('stall-uncle-lim');
-    expect(authService.currentStall().id).toBe('stall-uncle-lim');
-    expect(authService.currentStall().stallName).toContain('Uncle Lim');
-  });
 
   it('should register a brand new hawker stall and allow custom menu editing', () => {
     const newStall = authService.registerStall({

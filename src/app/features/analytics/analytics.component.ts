@@ -27,8 +27,9 @@ export class AnalyticsComponent {
   }
 
   resetOrdersData(): void {
-    if (confirm('Reset today\'s orders and revenue back to demo initial state?')) {
+    if (confirm('Clear all orders in the current shift?')) {
       this.orderService.resetOrders();
     }
   }
+
 }

@@ -71,7 +71,12 @@ export class MenuService {
     try {
       if (typeof window !== 'undefined' && window.localStorage) {
         const stored = window.localStorage.getItem(`hawkerflow_categories_${stall.id}`);
-        if (stored) return JSON.parse(stored);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            return parsed;
+          }
+        }
       }
     } catch (e) {
       // fallback
@@ -90,7 +95,12 @@ export class MenuService {
     try {
       if (typeof window !== 'undefined' && window.localStorage) {
         const stored = window.localStorage.getItem(`hawkerflow_menu_${stall.id}`);
-        if (stored) return JSON.parse(stored);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            return parsed;
+          }
+        }
       }
     } catch (e) {
       // fallback
