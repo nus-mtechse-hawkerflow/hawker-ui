@@ -1,4 +1,4 @@
-import { Injectable, signal, computed, effect, inject } from '@angular/core';
+import { Injectable, signal, computed, effect, inject, DestroyRef } from '@angular/core';
 import { DiningOption, Order, OrderItem, OrderStatus, PaymentMethod, SelectedModifier, BackendStallOrderDto, BackendOrderSubmissionPayload } from '../models/order.model';
 import { MenuItem } from '../models/menu.model';
 import { AudioService } from './audio.service';
@@ -14,6 +14,7 @@ export class OrderService {
   private settingsService = inject(SettingsService);
   private authService = inject(AuthService);
   private orderApiService = inject(OrderApiService);
+  private destroyRef = inject(DestroyRef);
 
   // Cart State
   readonly cartItems = signal<OrderItem[]>(this.loadCart());
@@ -25,7 +26,11 @@ export class OrderService {
   readonly orders = signal<Order[]>(this.loadOrders());
   readonly lastBumpedOrder = signal<Order | null>(null);
   readonly isSyncingOrders = signal<boolean>(false);
+  readonly isPollingPendingOrders = signal<boolean>(false);
   readonly lastNotificationMessage = signal<string | null>(null);
+
+  private pollingIntervalTimer: any = null;
+  private isPollInProgress = false;
 
   // Cart Computations
   readonly cartSubtotal = computed(() => {
@@ -82,16 +87,25 @@ export class OrderService {
   });
 
   constructor() {
-    // When stall changes, reload that stall's orders and cart + sync from backend 8082
+    this.destroyRef.onDestroy(() => {
+      this.stopPendingOrdersWorker();
+    });
+
+    // When stall changes, reload that stall's orders and cart + start background polling worker
     effect(() => {
       const stall = this.authService.currentStall();
       if (stall) {
         this.orders.set(this.loadOrders());
         this.cartItems.set(this.loadCart());
         this.lastBumpedOrder.set(null);
+        // Initial sync of all stall orders
         this.syncBackendOrders(stall.numericId || 1).catch(err => {
-          console.warn('Background backend order sync note:', err);
+          console.warn('Initial backend order sync note:', err);
         });
+        // Start 5s recurring background worker for /v1/order/stalls/me/orders (pending status)
+        this.startPendingOrdersWorker();
+      } else {
+        this.stopPendingOrdersWorker();
       }
     });
 
@@ -122,6 +136,92 @@ export class OrderService {
         // fallback
       }
     });
+  }
+
+  /**
+   * Starts background worker that pings /v1/order/stalls/me/orders every 5s for pending orders.
+   */
+  startPendingOrdersWorker(): void {
+    this.stopPendingOrdersWorker();
+    
+    // Initial immediate poll
+    this.pollPendingOrders();
+
+    if (typeof window !== 'undefined') {
+      this.pollingIntervalTimer = setInterval(() => {
+        this.pollPendingOrders();
+      }, 5000);
+    }
+  }
+
+  /**
+   * Stops background polling worker.
+   */
+  stopPendingOrdersWorker(): void {
+    if (this.pollingIntervalTimer) {
+      clearInterval(this.pollingIntervalTimer);
+      this.pollingIntervalTimer = null;
+    }
+    this.isPollingPendingOrders.set(false);
+  }
+
+  /**
+   * Worker task: pings GET /v1/order/stalls/me/orders with status=pending every 5 seconds.
+   */
+  async pollPendingOrders(): Promise<void> {
+    const stall = this.authService.currentStall();
+    if (!stall) {
+      this.stopPendingOrdersWorker();
+      return;
+    }
+
+    if (this.isPollInProgress) return;
+    this.isPollInProgress = true;
+    this.isPollingPendingOrders.set(true);
+
+    try {
+      const res = await this.orderApiService.getMyStallOrders(stall.numericId, 'pending');
+      if (res && res.orders && Array.isArray(res.orders)) {
+        const mappedPending = res.orders.map(dto => this.mapBackendOrderToOrder(dto, stall));
+        
+        let newPendingCount = 0;
+
+        this.orders.update(existing => {
+          const map = new Map<string | number, Order>();
+          for (const ord of existing) {
+            map.set(ord.backendOrderId || ord.id, ord);
+          }
+
+          for (const pendingOrd of mappedPending) {
+            const key = pendingOrd.backendOrderId || pendingOrd.id;
+            const existingOrd = map.get(key);
+
+            if (!existingOrd) {
+              newPendingCount++;
+              map.set(key, pendingOrd);
+            } else {
+              // Update details while keeping current status progression if bumped locally
+              map.set(key, { ...existingOrd, ...pendingOrd });
+            }
+          }
+
+          return Array.from(map.values());
+        });
+
+        if (newPendingCount > 0) {
+          this.audioService.playNewOrderAlert();
+          this.lastNotificationMessage.set(
+            newPendingCount === 1 ? 'New customer pending order received!' : `${newPendingCount} new pending orders received!`
+          );
+        }
+      }
+    } catch (err: any) {
+      // Graceful error capture for background polling
+      console.debug('Background worker pending orders ping (/v1/order/stalls/me/orders) status:', err?.message || err);
+    } finally {
+      this.isPollInProgress = false;
+      this.isPollingPendingOrders.set(false);
+    }
   }
 
   /**
@@ -337,11 +437,11 @@ export class OrderService {
   }
 
   // Order Submission & KDS Flow
-  submitOrder(paymentMethod: PaymentMethod, cashTendered?: number, paynowRef?: string): Order {
-    const currentOrders = this.orders();
-    const nextSeq = currentOrders.length + 1;
-    const orderNum = `HF-${String(nextSeq).padStart(3, '0')}`;
-
+  async submitOrder(paymentMethod: PaymentMethod, cashTendered?: number, paynowRef?: string): Promise<Order> {
+    const items = [...this.cartItems()];
+    const diningOption = this.diningOption();
+    const tableOrBuzzerNumber = this.tableOrBuzzerNumber() || (diningOption === 'dine_in' ? 'Table Walk-in' : 'Takeaway Counter');
+    const orderNotes = this.orderNotes();
     const subtotal = this.cartSubtotal();
     const takeawayFee = this.cartTakeawayFee();
     const tax = this.cartTax();
@@ -355,14 +455,47 @@ export class OrderService {
     const currentStall = this.authService.currentStall();
     const stallNumericId = currentStall?.numericId || 1;
 
+    const backendPayload: BackendOrderSubmissionPayload = {
+      orders: [
+        {
+          stall_id: stallNumericId,
+          dishes: items.map((item, idx) => ({
+            dish_id: item.dishId || (idx + 1),
+            quantity: item.quantity,
+            price: item.unitPriceWithModifiers
+          }))
+        }
+      ],
+      total_price: total
+    };
+
+    let backendOrderId: number | undefined = undefined;
+    let backendStallOrderId: number | undefined = undefined;
+
+    try {
+      const res = await this.orderApiService.submitOrder(backendPayload);
+      console.log('Order submitted to backend 8082 successfully:', res);
+      
+      backendOrderId = res?.order_id ?? res?.id ?? res?.data?.order_id ?? res?.orders?.[0]?.order_id ?? (typeof res === 'number' ? res : undefined);
+      backendStallOrderId = res?.stall_order_id ?? res?.data?.stall_order_id ?? res?.orders?.[0]?.stall_order_id ?? backendOrderId;
+    } catch (err: any) {
+      console.warn('Backend order submission note:', err);
+    }
+
+    const finalOrderId = backendOrderId ? `ord-backend-${backendOrderId}` : `ord-local-${Date.now()}`;
+    const orderNum = backendOrderId ? `HF-${String(backendOrderId).padStart(3, '0')}` : `HF-${Date.now().toString().slice(-4)}`;
+    const dailySeq = backendOrderId || (this.orders().length + 1);
+
     const newOrder: Order = {
-      id: 'ord-' + Date.now(),
+      id: finalOrderId,
+      backendOrderId: backendOrderId,
+      backendStallOrderId: backendStallOrderId,
       stallId: stallNumericId,
       orderNumber: orderNum,
-      dailySequence: nextSeq,
-      diningOption: this.diningOption(),
-      tableOrBuzzerNumber: this.tableOrBuzzerNumber() || (this.diningOption() === 'dine_in' ? 'Table Walk-in' : 'Takeaway Counter'),
-      items: [...this.cartItems()],
+      dailySequence: dailySeq,
+      diningOption,
+      tableOrBuzzerNumber,
+      items,
       subtotal,
       takeawayFee,
       tax,
@@ -375,34 +508,24 @@ export class OrderService {
       paynowRef: paynowRef || (paymentMethod === 'paynow' ? 'PN-' + Math.floor(10000000 + Math.random() * 90000000) : undefined),
       status: 'pending',
       createdAt: new Date().toISOString(),
-      orderNotes: this.orderNotes()
+      orderNotes
     };
 
-    this.orders.update(list => [newOrder, ...list]);
+    this.orders.update(list => {
+      const filtered = list.filter(o => {
+        if (backendOrderId && o.backendOrderId === backendOrderId) return false;
+        if (o.id === finalOrderId) return false;
+        return true;
+      });
+      return [newOrder, ...filtered];
+    });
+
     this.clearCart();
 
-    // Async submit to Backend Order Service (Port 8082)
-    const backendPayload: BackendOrderSubmissionPayload = {
-      orders: [
-        {
-          stall_id: stallNumericId,
-          dishes: newOrder.items.map((item, idx) => ({
-            dish_id: item.dishId || (idx + 1),
-            quantity: item.quantity,
-            price: item.unitPriceWithModifiers
-          }))
-        }
-      ],
-      total_price: newOrder.total
-    };
-
-    this.orderApiService.submitOrder(backendPayload).then(res => {
-      console.log('Order submitted to backend 8082 successfully:', res);
-      this.lastNotificationMessage.set(`Order ${orderNum} registered on HawkerFlow Backend (Port 8082)`);
+    if (backendOrderId) {
+      this.lastNotificationMessage.set(`Order ${orderNum} created (Backend ID: ${backendOrderId})`);
       setTimeout(() => this.lastNotificationMessage.set(null), 4000);
-    }).catch(err => {
-      console.warn('Backend order submission note:', err);
-    });
+    }
 
     // Audio & Feedback
     this.audioService.playCheckoutSuccess();

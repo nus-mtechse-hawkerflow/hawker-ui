@@ -20,6 +20,7 @@ export class KdsComponent {
   readonly readyOrders = this.orderService.kdsReadyOrders;
   readonly lastBumpedOrder = this.orderService.lastBumpedOrder;
   readonly isSyncing = this.orderService.isSyncingOrders;
+  readonly isPolling = this.orderService.isPollingPendingOrders;
   readonly lastNotificationMessage = this.orderService.lastNotificationMessage;
 
   currentFilter = signal<'all' | 'pending' | 'preparing' | 'ready'>('all');

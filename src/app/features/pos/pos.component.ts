@@ -62,13 +62,13 @@ export class PosComponent {
     this.showPaymentModal.set(true);
   }
 
-  onPaymentComplete(event: {
+  async onPaymentComplete(event: {
     method: PaymentMethod;
     cashTendered?: number;
     paynowRef?: string;
-  }): void {
+  }): Promise<void> {
     this.showPaymentModal.set(false);
-    const order = this.orderService.submitOrder(
+    const order = await this.orderService.submitOrder(
       event.method,
       event.cashTendered,
       event.paynowRef

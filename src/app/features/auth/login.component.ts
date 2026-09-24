@@ -15,9 +15,7 @@ export class LoginComponent {
   readonly authService = inject(AuthService);
   private router = inject(Router);
 
-  readonly allStalls = this.authService.allStalls;
-
-  activeTab = signal<'quick' | 'login' | 'register'>('login');
+  activeTab = signal<'login' | 'register'>('login');
   registerStep = signal<'form' | 'confirm_code'>('form');
 
   isLoading = signal<boolean>(false);
@@ -62,10 +60,6 @@ export class LoginComponent {
       if (dishes.length <= 1) return dishes;
       return dishes.filter((_, i) => i !== index);
     });
-  }
-
-  onQuickLogin(stallId: string): void {
-    this.authService.quickLogin(stallId);
   }
 
   async onFormLogin(): Promise<void> {

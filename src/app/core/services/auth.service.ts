@@ -42,7 +42,7 @@ export class AuthService {
         if (match) return match;
       }
     }
-    return stalls.length > 0 ? stalls[0] : null;
+    return null;
   });
 
   constructor() {

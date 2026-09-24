@@ -80,6 +80,12 @@
 
     <!-- Right Side: Refresh & Recall Last Ticket -->
     <div class="flex items-center gap-2">
+      <!-- Live 5s Worker Status Indicator -->
+      <div class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 text-emerald-700 dark:text-emerald-300 text-xs font-semibold" title="Background worker active: polling pending orders every 5s">
+        <span class="w-2 h-2 rounded-full bg-emerald-500" [class.animate-ping]="isPolling()"></span>
+        <span class="hidden sm:inline">Live 5s</span>
+      </div>
+
       <button
         type="button"
         (click)="refreshOrders()"

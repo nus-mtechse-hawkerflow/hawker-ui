@@ -25,9 +25,7 @@ export class HeaderComponent implements OnInit, OnDestroy {
   readonly activeKdsCount = () => this.orderService.activeOrders().length;
   readonly soldOutCount = this.menuService.soldOutCount;
   readonly currentStall = this.authService.currentStall;
-  readonly allStalls = this.authService.allStalls;
 
-  isDropdownOpen = signal<boolean>(false);
   currentTime = signal<string>('');
   private timerInterval: any;
 
@@ -45,22 +43,7 @@ export class HeaderComponent implements OnInit, OnDestroy {
     this.currentTime.set(now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
   }
 
-  toggleStallDropdown(): void {
-    this.isDropdownOpen.update(v => !v);
-  }
-
-  onSwitchStall(stallId: string): void {
-    this.authService.quickLogin(stallId);
-    this.isDropdownOpen.set(false);
-  }
-
-  goToLogin(): void {
-    this.isDropdownOpen.set(false);
-    this.router.navigate(['/login']);
-  }
-
   onLogout(): void {
-    this.isDropdownOpen.set(false);
     this.authService.logout();
   }
 
