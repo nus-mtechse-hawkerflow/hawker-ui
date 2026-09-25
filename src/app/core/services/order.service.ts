@@ -108,34 +108,6 @@ export class OrderService {
         this.stopPendingOrdersWorker();
       }
     });
-
-    effect(() => {
-      const stall = this.authService.currentStall();
-      if (!stall) return;
-
-      const ordersKey = `hawkerflow_orders_${stall.id}`;
-      try {
-        if (typeof window !== 'undefined' && window.localStorage) {
-          window.localStorage.setItem(ordersKey, JSON.stringify(this.orders()));
-        }
-      } catch (e) {
-        // fallback
-      }
-    });
-
-    effect(() => {
-      const stall = this.authService.currentStall();
-      if (!stall) return;
-
-      const cartKey = `hawkerflow_cart_${stall.id}`;
-      try {
-        if (typeof window !== 'undefined' && window.localStorage) {
-          window.localStorage.setItem(cartKey, JSON.stringify(this.cartItems()));
-        }
-      } catch (e) {
-        // fallback
-      }
-    });
   }
 
   /**
@@ -293,19 +265,8 @@ export class OrderService {
       orderNumber: `HF-${String(dto.order_id).padStart(3, '0')}`,
       dailySequence: dto.order_id,
       diningOption: 'dine_in',
-      tableOrBuzzerNumber: `Order #${dto.order_id}`,
-      items: items.length > 0 ? items : [
-        {
-          id: `item-${dto.order_id}-1`,
-          menuItemId: 'dish-1',
-          name: stall?.stallName ? `${stall.stallName} Order Item` : 'Hawker Dish',
-          basePrice: dto.subtotal || 5.0,
-          quantity: 1,
-          selectedModifiers: [],
-          unitPriceWithModifiers: dto.subtotal || 5.0,
-          totalPrice: dto.subtotal || 5.0
-        }
-      ],
+      tableOrBuzzerNumber: dto.order_id ? `#${dto.order_id}` : '',
+      items: items,
       subtotal: dto.subtotal || 0,
       takeawayFee: 0,
       tax: 0,
@@ -322,32 +283,10 @@ export class OrderService {
   private loadOrders(): Order[] {
     const stall = this.authService.currentStall();
     if (!stall) return [];
-
-    try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        const stored = window.localStorage.getItem(`hawkerflow_orders_${stall.id}`);
-        if (stored) return JSON.parse(stored);
-      }
-    } catch (e) {
-      // fallback
-    }
-
     return stall.initialOrders || [];
   }
 
   private loadCart(): OrderItem[] {
-    const stall = this.authService.currentStall();
-    if (!stall) return [];
-
-    try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        const stored = window.localStorage.getItem(`hawkerflow_cart_${stall.id}`);
-        if (stored) return JSON.parse(stored);
-      }
-    } catch (e) {
-      // fallback
-    }
-
     return [];
   }
 

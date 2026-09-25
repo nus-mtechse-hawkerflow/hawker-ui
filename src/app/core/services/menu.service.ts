@@ -36,76 +36,29 @@ export class MenuService {
   constructor() {
     // When stall changes, reload menu items and categories for that specific stall
     effect(() => {
-      const stall = this.authService.currentStall();
-      if (stall) {
-        this.categories.set(this.loadCategories());
-        this.items.set(this.loadItems());
-        this.selectedCategoryId.set('all');
-        this.searchQuery.set('');
-      }
+      this.reloadMenu();
     });
+  }
 
-    // Auto-save changes to localStorage scoped by current stall id
-    effect(() => {
-      const stall = this.authService.currentStall();
-      if (!stall) return;
-
-      const itemsKey = `hawkerflow_menu_${stall.id}`;
-      const catKey = `hawkerflow_categories_${stall.id}`;
-
-      try {
-        if (typeof window !== 'undefined' && window.localStorage) {
-          window.localStorage.setItem(itemsKey, JSON.stringify(this.items()));
-          window.localStorage.setItem(catKey, JSON.stringify(this.categories()));
-        }
-      } catch (e) {
-        // fallback
-      }
-    });
+  reloadMenu(): void {
+    const stall = this.authService.currentStall();
+    if (stall) {
+      this.categories.set(this.loadCategories());
+      this.items.set(this.loadItems());
+      this.selectedCategoryId.set('all');
+      this.searchQuery.set('');
+    }
   }
 
   private loadCategories(): Category[] {
     const stall = this.authService.currentStall();
     if (!stall) return [];
-
-    try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        const stored = window.localStorage.getItem(`hawkerflow_categories_${stall.id}`);
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            return parsed;
-          }
-        }
-      }
-    } catch (e) {
-      // fallback
-    }
-
-    return stall.initialCategories || [
-      { id: 'all', name: 'All Items', chineseName: '全部', icon: 'utensils', displayOrder: 0 },
-      { id: 'mains', name: 'Signatures', chineseName: '招牌', icon: 'flame', displayOrder: 1 }
-    ];
+    return stall.initialCategories || [];
   }
 
   private loadItems(): MenuItem[] {
     const stall = this.authService.currentStall();
     if (!stall) return [];
-
-    try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        const stored = window.localStorage.getItem(`hawkerflow_menu_${stall.id}`);
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            return parsed;
-          }
-        }
-      }
-    } catch (e) {
-      // fallback
-    }
-
     return stall.initialMenuItems || [];
   }
 

@@ -5,6 +5,7 @@ import { Order } from './order.model';
 export interface StallAccount {
   id: string; // e.g. "stall-ah-huat", "stall-uncle-lim", "stall-1"
   numericId?: number; // Backend stall ID (e.g. 1, 2, 3)
+  username?: string;
   stallName: string;
   hawkerCentreName: string;
   unitNumber: string;
@@ -26,6 +27,7 @@ export interface StallAccount {
 export interface UserSession {
   stallId: string;
   numericStallId?: number;
+  username?: string;
   email: string;
   ownerName: string;
   role: 'owner' | 'cashier' | 'cook';
@@ -40,17 +42,19 @@ export interface HawkerDishFormItem {
 }
 
 export interface HawkerRegisterRequest {
+  username: string;
   stallName: string;
-  hawkerCentreName: string;
+  hawkerCentreName?: string;
   unitNumber: string;
   stallDescription?: string;
   uenNumber?: string;
   contactNumber?: string;
   ownerName: string;
   email: string;
-  password?: string;
+  password: string;
   emoji?: string;
   cuisineCategory?: string;
+  cognitoSub?: string;
   menuItems?: HawkerDishFormItem[];
 }
 
@@ -71,10 +75,17 @@ export interface BackendStallMenuDto {
 }
 
 export interface BackendStallOwnerDto {
-  f_stall_owner_id: number;
-  f_stall_owner_name: string;
-  f_stall_owner_phone: string;
-  f_stall_id: number;
+  f_stall_owner_id?: number;
+  f_stall_owner_name?: string;
+  f_stall_owner_phone?: string;
+  f_stall_owner_email?: string;
+  f_stall_owner_sub?: string;
+  f_stall_id?: number;
+  stall_owner_id?: number;
+  name?: string;
+  phone?: string;
+  email?: string;
+  stall_owner_sub?: string;
 }
 
 export interface BackendStallDto {
@@ -97,8 +108,26 @@ export interface BackendHawkerRegisterPayload {
     description: string;
   }>;
   stall_owner: {
+    stall_owner_sub: string;
     name: string;
     phone: string;
+    email: string;
   };
+}
+
+export interface HawkerMeMenuItemDto {
+  menu_id: number;
+  menu_name: string;
+  menu_price: number;
+  menu_description: string;
+}
+
+export interface HawkerMeStallDto {
+  stall_id: number;
+  stall_name: string;
+  stall_description?: string;
+  stall_location?: string;
+  stall_number?: string;
+  stall_menu: HawkerMeMenuItemDto[];
 }
 

@@ -23,18 +23,18 @@ export class LoginComponent {
   successMessage = signal<string>('');
 
   // Login Form
-  loginIdentifier = '';
+  loginUsername = '';
   loginPassword = '';
 
   // Register Form
+  regUsername = '';
+  regEmail = '';
+  regPassword = '';
   regStallName = '';
-  regHawkerCentre = '';
   regUnitNumber = '';
   regStallDescription = '';
   regOwnerName = '';
   regContactNumber = '';
-  regEmail = '';
-  regPassword = '';
   regEmoji = '🥘';
   regCuisine = '';
 
@@ -46,6 +46,7 @@ export class LoginComponent {
 
   // Verification Form
   confirmCode = '';
+  pendingVerificationUsername = signal<string>('');
   pendingVerificationEmail = signal<string>('');
 
   addDish(): void {
@@ -65,10 +66,16 @@ export class LoginComponent {
   async onFormLogin(): Promise<void> {
     this.errorMessage.set('');
     this.successMessage.set('');
+
+    if (!this.loginUsername.trim()) {
+      this.errorMessage.set('Please enter your username.');
+      return;
+    }
+
     this.isLoading.set(true);
 
     try {
-      const res = await this.authService.login(this.loginIdentifier, this.loginPassword);
+      const res = await this.authService.login(this.loginUsername.trim(), this.loginPassword);
       if (!res.success) {
         this.errorMessage.set(res.error || 'Login failed');
       }
@@ -83,8 +90,30 @@ export class LoginComponent {
     this.errorMessage.set('');
     this.successMessage.set('');
 
-    if (!this.regStallName.trim() || !this.regHawkerCentre.trim() || !this.regUnitNumber.trim() || !this.regOwnerName.trim()) {
-      this.errorMessage.set('Please fill in all required stall and owner details.');
+    const username = this.regUsername.trim();
+    const email = this.regEmail.trim().toLowerCase();
+    const password = this.regPassword.trim();
+    const stallName = this.regStallName.trim();
+    const unitNumber = this.regUnitNumber.trim();
+    const ownerName = this.regOwnerName.trim();
+
+    if (!username) {
+      this.errorMessage.set('Username is required for hawker registration.');
+      return;
+    }
+
+    if (!email) {
+      this.errorMessage.set('Email is mandatory for hawker registration.');
+      return;
+    }
+
+    if (!password) {
+      this.errorMessage.set('Password is mandatory for hawker registration.');
+      return;
+    }
+
+    if (!stallName || !unitNumber || !ownerName) {
+      this.errorMessage.set('Please fill in all required stall and owner details (Stall Name, Unit #, Owner Name).');
       return;
     }
 
@@ -97,31 +126,50 @@ export class LoginComponent {
     this.isLoading.set(true);
 
     try {
-      const email = (this.regEmail.trim() || `${this.regStallName.toLowerCase().replace(/[^a-z0-9]/g, '')}@hawkerflow.sg`).toLowerCase();
-      
-      const result = await this.authService.registerHawkerStall({
-        stallName: this.regStallName.trim(),
-        hawkerCentreName: this.regHawkerCentre.trim(),
-        unitNumber: this.regUnitNumber.trim(),
-        stallDescription: this.regStallDescription.trim() || this.regCuisine.trim(),
-        contactNumber: this.regContactNumber.trim() || '+65 9123 0000',
-        ownerName: this.regOwnerName.trim(),
+      const req = {
+        username: username,
         email: email,
-        password: this.regPassword || 'password123',
+        password: password,
+        stallName: stallName,
+        unitNumber: unitNumber,
+        stallDescription: this.regStallDescription.trim() || this.regCuisine.trim() || 'Hawker Specialties',
+        contactNumber: this.regContactNumber.trim() || '+65 9123 0000',
+        ownerName: ownerName,
         emoji: this.regEmoji.trim() || '🥘',
         cuisineCategory: this.regCuisine.trim() || 'Hawker Specialties',
         menuItems: validDishes
-      });
+      };
 
-      if (!result.success) {
-        this.errorMessage.set(result.error || 'Registration failed.');
-        return;
+      if (this.authService.isCognitoConfigured()) {
+        const signUpRes = await this.authService.registerWithCognito(req);
+        if (!signUpRes.success) {
+          this.errorMessage.set(signUpRes.error || 'Cognito registration failed.');
+          return;
+        }
+
+        if (signUpRes.isSignUpComplete) {
+          this.successMessage.set(`Stall "${stallName}" registered successfully! Redirecting to POS...`);
+          setTimeout(() => {
+            this.router.navigate(['/pos']);
+          }, 700);
+        } else {
+          this.pendingVerificationUsername.set(username);
+          this.pendingVerificationEmail.set(email);
+          this.registerStep.set('confirm_code');
+          this.successMessage.set(`Verification code sent to ${email} for user "${username}". Please check your inbox.`);
+        }
+      } else {
+        const result = await this.authService.registerHawkerStall(req);
+        if (!result.success) {
+          this.errorMessage.set(result.error || 'Registration failed.');
+          return;
+        }
+
+        this.successMessage.set(`Stall "${stallName}" registered successfully! Redirecting to POS...`);
+        setTimeout(() => {
+          this.router.navigate(['/pos']);
+        }, 700);
       }
-
-      this.successMessage.set(`Stall "${this.regStallName}" registered successfully! Redirecting to POS...`);
-      setTimeout(() => {
-        this.router.navigate(['/pos']);
-      }, 700);
     } catch (err: any) {
       this.errorMessage.set(err.message || 'Failed to submit registration.');
     } finally {
@@ -142,11 +190,14 @@ export class LoginComponent {
     this.isLoading.set(true);
 
     try {
-      const email = this.pendingVerificationEmail() || this.regEmail.trim().toLowerCase();
-      const result = await this.authService.confirmCognitoSignUp(email, this.confirmCode.trim());
+      const identifier = this.pendingVerificationUsername() || this.regUsername.trim() || this.pendingVerificationEmail() || this.regEmail.trim().toLowerCase();
+      const result = await this.authService.confirmCognitoSignUp(identifier, this.confirmCode.trim());
 
       if (result.success) {
-        this.successMessage.set('Verification successful! Redirecting to POS...');
+        this.successMessage.set('Verification successful! Stall registered and POS ready. Redirecting...');
+        setTimeout(() => {
+          this.router.navigate(['/pos']);
+        }, 700);
       } else {
         this.errorMessage.set(result.error || 'Verification failed. Please check the code.');
       }
@@ -160,15 +211,15 @@ export class LoginComponent {
   async onResendCode(): Promise<void> {
     this.errorMessage.set('');
     this.successMessage.set('');
-    const email = this.pendingVerificationEmail() || this.regEmail.trim().toLowerCase();
+    const identifier = this.pendingVerificationUsername() || this.regUsername.trim() || this.pendingVerificationEmail() || this.regEmail.trim().toLowerCase();
     
-    if (!email) return;
+    if (!identifier) return;
 
     this.isLoading.set(true);
     try {
-      const res = await this.authService.resendCognitoCode(email);
+      const res = await this.authService.resendCognitoCode(identifier);
       if (res.success) {
-        this.successMessage.set(res.message || `New code sent to ${email}`);
+        this.successMessage.set(res.message || `New code sent for ${identifier}`);
       } else {
         this.errorMessage.set(res.error || 'Failed to resend code.');
       }

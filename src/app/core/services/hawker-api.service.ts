@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, firstValueFrom } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { BackendHawkerRegisterPayload, BackendStallDto } from '../models/auth.model';
+import { BackendHawkerRegisterPayload, BackendStallDto, HawkerMeStallDto } from '../models/auth.model';
 
 @Injectable({
   providedIn: 'root'
@@ -28,6 +28,16 @@ export class HawkerApiService {
   async getStalls(): Promise<{ stalls: BackendStallDto[] }> {
     return firstValueFrom(
       this.http.get<{ stalls: BackendStallDto[] }>(`${this.baseUrl}/v1/hawker/stalls`)
+    );
+  }
+
+  /**
+   * Retrieve stall and menu details for the currently authenticated hawker by their sub identifier.
+   * GET /v1/hawker/me/stall/{hawker_sub}
+   */
+  async getHawkerStallBySub(hawkerSub: string): Promise<HawkerMeStallDto> {
+    return firstValueFrom(
+      this.http.get<HawkerMeStallDto>(`${this.baseUrl}/v1/hawker/me/stall/${encodeURIComponent(hawkerSub)}`)
     );
   }
 }

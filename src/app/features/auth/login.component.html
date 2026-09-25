@@ -97,20 +97,20 @@
 
           <form (ngSubmit)="onFormLogin()" class="space-y-4">
             <div class="space-y-1.5">
-              <label class="text-xs font-bold text-slate-300">Stall Name / Email / Unit #</label>
+              <label class="text-xs font-bold text-slate-300">Username *</label>
               <input
                 type="text"
-                [(ngModel)]="loginIdentifier"
-                name="identifier"
-                placeholder="e.g. Nasi Lemak or #01-15"
+                [(ngModel)]="loginUsername"
+                name="username"
+                placeholder="Enter your username (e.g. ahhuat88)"
                 required
-                class="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 transition-all"
+                class="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 transition-all font-mono"
               />
             </div>
 
             <div class="space-y-1.5">
               <div class="flex items-center justify-between">
-                <label class="text-xs font-bold text-slate-300">Password</label>
+                <label class="text-xs font-bold text-slate-300">Password *</label>
               </div>
               <input
                 type="password"
@@ -124,7 +124,7 @@
 
             <button
               type="submit"
-              [disabled]="isLoading() || !loginIdentifier"
+              [disabled]="isLoading() || !loginUsername"
               class="w-full py-3.5 rounded-xl bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white font-extrabold text-sm shadow-lg shadow-orange-600/30 flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-[0.99] disabled:opacity-50"
             >
               @if (isLoading()) {
@@ -156,9 +156,64 @@
 
             <form (ngSubmit)="onRegisterStall()" class="space-y-4 text-xs">
               
-              <!-- Stall Name & Hawker Centre -->
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                <div class="space-y-1">
+              <!-- Account Credentials (Username, Email, Password - Mandatory) -->
+              <div class="space-y-2.5 pb-2 border-b border-slate-800/80">
+                <div class="flex items-center justify-between">
+                  <label class="font-extrabold text-sm text-amber-400 flex items-center gap-1.5">
+                    <span>🔐 Hawker Account Credentials</span>
+                    <span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-mono">Mandatory</span>
+                  </label>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                  <div class="space-y-1">
+                    <label class="font-bold text-slate-300">Username *</label>
+                    <input
+                      type="text"
+                      [(ngModel)]="regUsername"
+                      name="username"
+                      placeholder="e.g. ahhuat88"
+                      required
+                      class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-500 font-mono"
+                    />
+                  </div>
+
+                  <div class="space-y-1">
+                    <label class="font-bold text-slate-300">Account Email *</label>
+                    <input
+                      type="email"
+                      [(ngModel)]="regEmail"
+                      name="email"
+                      placeholder="e.g. ahhuat@example.com"
+                      required
+                      class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    />
+                  </div>
+
+                  <div class="space-y-1">
+                    <label class="font-bold text-slate-300">Account Password *</label>
+                    <input
+                      type="password"
+                      [(ngModel)]="regPassword"
+                      name="regPassword"
+                      placeholder="••••••••"
+                      required
+                      class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-500 font-mono"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <!-- Stall Business Details -->
+              <div class="space-y-1 pt-1">
+                <label class="font-extrabold text-sm text-orange-400 flex items-center gap-1.5">
+                  <span>🏬 Stall Profile</span>
+                </label>
+              </div>
+
+              <!-- Stall Name & Unit Number -->
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                <div class="sm:col-span-2 space-y-1">
                   <label class="font-bold text-slate-300">Stall Business Name *</label>
                   <input
                     type="text"
@@ -171,21 +226,6 @@
                 </div>
 
                 <div class="space-y-1">
-                  <label class="font-bold text-slate-300">Hawker Centre Location *</label>
-                  <input
-                    type="text"
-                    [(ngModel)]="regHawkerCentre"
-                    name="hawkerCentre"
-                    placeholder="e.g. Maxwell Food Centre"
-                    required
-                    class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-500"
-                  />
-                </div>
-              </div>
-
-              <!-- Unit #, Owner Name, Contact Phone -->
-              <div class="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-                <div class="space-y-1">
                   <label class="font-bold text-slate-300">Unit Number *</label>
                   <input
                     type="text"
@@ -196,7 +236,10 @@
                     class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-500"
                   />
                 </div>
+              </div>
 
+              <!-- Owner Name & Contact Phone -->
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <div class="space-y-1">
                   <label class="font-bold text-slate-300">Owner / Chef Name *</label>
                   <input
@@ -250,7 +293,7 @@
                     class="px-2.5 py-1 rounded-lg bg-orange-600/20 hover:bg-orange-600/30 border border-orange-500/40 text-orange-300 font-bold text-xs flex items-center gap-1 cursor-pointer transition-all active:scale-95"
                   >
                     <app-icon name="plus" [size]="14"></app-icon>
-                    <span>+ Add Dish</span>
+                    <span>Add Dish</span>
                   </button>
                 </div>
 
@@ -311,35 +354,10 @@
                 </div>
               </div>
 
-              <!-- Optional Email / Password -->
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-2 border-t border-slate-800/80">
-                <div class="space-y-1">
-                  <label class="font-bold text-slate-300">Account Email (Optional)</label>
-                  <input
-                    type="email"
-                    [(ngModel)]="regEmail"
-                    name="email"
-                    placeholder="Optional - auto-generated if blank"
-                    class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-500"
-                  />
-                </div>
-
-                <div class="space-y-1">
-                  <label class="font-bold text-slate-300">Account Password (Optional)</label>
-                  <input
-                    type="password"
-                    [(ngModel)]="regPassword"
-                    name="regPassword"
-                    placeholder="Optional (Default: password123)"
-                    class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-500 font-mono"
-                  />
-                </div>
-              </div>
-
               <button
                 type="submit"
-                [disabled]="isLoading() || !regStallName || !regHawkerCentre || !regUnitNumber || !regOwnerName"
-                [class.opacity-50]="isLoading() || !regStallName || !regHawkerCentre || !regUnitNumber || !regOwnerName"
+                [disabled]="isLoading() || !regUsername.trim() || !regEmail.trim() || !regPassword.trim() || !regStallName.trim() || !regUnitNumber.trim() || !regOwnerName.trim()"
+                [class.opacity-50]="isLoading() || !regUsername.trim() || !regEmail.trim() || !regPassword.trim() || !regStallName.trim() || !regUnitNumber.trim() || !regOwnerName.trim()"
                 class="w-full py-3.5 rounded-xl bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white font-extrabold text-sm shadow-lg shadow-orange-600/30 flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-[0.99] disabled:cursor-not-allowed"
               >
                 @if (isLoading()) {
@@ -364,7 +382,7 @@
               <div class="space-y-1">
                 <h2 class="text-lg font-black text-white">Verify Your Email Address</h2>
                 <p class="text-xs text-slate-400">
-                  We've sent a 6-digit confirmation code to <span class="text-orange-400 font-bold font-mono">{{ pendingVerificationEmail() || regEmail }}</span>
+                  We've sent a 6-digit confirmation code for username <span class="text-orange-400 font-bold font-mono">{{ pendingVerificationUsername() || regUsername }}</span> to <span class="text-orange-400 font-bold font-mono">{{ pendingVerificationEmail() || regEmail }}</span>
                 </p>
               </div>
 
