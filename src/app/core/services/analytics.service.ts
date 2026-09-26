@@ -3,7 +3,7 @@ import { Subject, of } from 'rxjs';
 import { catchError, switchMap, tap } from 'rxjs/operators';
 import { AnalyticsApiService } from './analytics-api.service';
 import { AnalyticsStatus, StallDaySummary } from '../models/analytics.model';
-import { StallAccount } from '../models/auth.model';
+import { StallAccount, UserSession } from '../models/auth.model';
 
 interface LoadRequest {
   stallId: number;
@@ -81,14 +81,18 @@ export class AnalyticsService {
    * Load for a signed-in stall. A stall with no backend id shows a setup
    * message rather than defaulting to another stall's figures.
    */
-  loadForStall(stall: StallAccount | null | undefined, isoDate: string): void {
-    const stallId = this.api.resolveStallId(stall);
+  loadForStall(
+    stall: StallAccount | null | undefined,
+    session: UserSession | null | undefined,
+    isoDate: string
+  ): void {
+    const stallId = this.api.resolveStallId(stall, session);
 
     if (stallId === null) {
       this.summary.set(null);
       this.status.set('unmapped');
       this.errorMessage.set(
-        'This stall has no backend id, so analytics cannot be loaded. Sign in again to refresh it.'
+        'No stall id is available for the signed-in account, so analytics cannot be loaded. Sign in again to refresh it.'
       );
       return;
     }

@@ -3,7 +3,7 @@ import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { StallDaySummary } from '../models/analytics.model';
-import { StallAccount } from '../models/auth.model';
+import { StallAccount, UserSession } from '../models/auth.model';
 
 @Injectable({
   providedIn: 'root'
@@ -31,14 +31,26 @@ export class AnalyticsApiService {
   }
 
   /**
-   * Resolve the backend stall id for a signed-in stall.
+   * Resolve the backend stall id for the signed-in stall.
    *
-   * StallAccount.numericId is populated from backendStall.stall_id at login,
-   * so it is authoritative. It is optional on the model, and a stall without
-   * one must show a setup message rather than fall back to any default:
-   * guessing here would show one stall another stall's takings.
+   * Prefers StallAccount.numericId, then the session's numericStallId. Both
+   * originate from backendStall.stall_id, so both are authoritative rather
+   * than guesses.
+   *
+   * The session fallback matters because AuthService.currentStall resolves
+   * against allStalls(), which is populated only by a fetch from the hawker
+   * service. When that service is down, currentStall() is null even for a
+   * validly signed-in user — but the session, restored from localStorage,
+   * still carries the id. Analytics needs no other part of the hawker
+   * service, so it should not go blank when that service is unavailable.
+   *
+   * Returns null when neither is present. A stall without an id must show a
+   * setup message: guessing would show one stall another stall's takings.
    */
-  resolveStallId(stall: Pick<StallAccount, 'numericId'> | null | undefined): number | null {
-    return stall?.numericId ?? null;
+  resolveStallId(
+    stall: Pick<StallAccount, 'numericId'> | null | undefined,
+    session?: Pick<UserSession, 'numericStallId'> | null
+  ): number | null {
+    return stall?.numericId ?? session?.numericStallId ?? null;
   }
 }

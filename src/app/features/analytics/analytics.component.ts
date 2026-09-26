@@ -35,7 +35,8 @@ export class AnalyticsComponent {
     // user had visited KDS or Orders first to populate OrderService.
     effect(() => {
       const stall = this.authService.currentStall();
-      this.analyticsService.loadForStall(stall, this.selectedDate());
+      const session = this.authService.currentSession();
+      this.analyticsService.loadForStall(stall, session, this.selectedDate());
     });
   }
 
