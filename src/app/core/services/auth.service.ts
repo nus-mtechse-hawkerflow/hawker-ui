@@ -100,9 +100,16 @@ export class AuthService {
 
     const stallId = `stall-${numericStallId}`;
     const owner = dto.stall_owner?.[0];
-    const ownerName = owner?.f_stall_owner_name || '';
+    const ownerName = owner?.f_stall_owner_name || owner?.name || '';
     const contactNumber = owner?.f_stall_owner_phone || '';
     const safeEmail = `${dto.stall_name.toLowerCase().replace(/[^a-z0-9]/g, '') || 'stall'}_${numericStallId}@hawkerflow.sg`;
+
+    // The owner's registered email is the account identifier. Previously it was
+    // discarded in favour of safeEmail and no username was set at all, which
+    // made every backend-registered stall impossible to sign in to: the local
+    // login matches on username, and it was always undefined.
+    const ownerEmail = owner?.f_stall_owner_email || '';
+    const ownerSub = owner?.f_stall_owner_sub || undefined;
 
     const menuItems: MenuItem[] = (dto.stall_menu || []).map((m, mIdx) => ({
       id: `backend-dish-${m.f_menu_id || mIdx + 1}`,
@@ -126,13 +133,15 @@ export class AuthService {
     return {
       id: stallId,
       numericId: numericStallId,
+      username: ownerEmail || undefined,
+      cognitoSub: ownerSub,
       stallName: dto.stall_name,
       hawkerCentreName: dto.stall_location || '',
       unitNumber: dto.stall_number || '',
       uenNumber: '',
       contactNumber: contactNumber,
       ownerName: ownerName,
-      email: safeEmail,
+      email: ownerEmail || safeEmail,
       password: '',
       emoji: '🥘',
       cuisineCategory: dto.stall_description || '',
@@ -552,14 +561,26 @@ export class AuthService {
       }
     }
 
-    // 2. Local matching fallback (strictly matching by username)
+    // 2. Local matching fallback, by username or registered email.
+    // Matching on email as well matters for backend-registered stalls, whose
+    // identifier is the owner's email rather than a separate username.
     const stalls = this.allStalls();
-    const match = stalls.find(s => s.username?.toLowerCase() === term);
+    const match = stalls.find(
+      s => s.username?.toLowerCase() === term || s.email?.toLowerCase() === term
+    );
 
     if (!match) {
-      return { success: false, error: 'No hawker stall account found matching this username.' };
+      return {
+        success: false,
+        error: 'No hawker stall account found matching this username or email.'
+      };
     }
 
+    // Backend-registered stalls carry no password: the hawker service stores
+    // no credentials at all, because authentication belongs to Cognito. This
+    // check therefore passes for them whatever is typed. That is acceptable
+    // only because this fallback runs on a loopback development stack; it must
+    // not survive into any deployed environment.
     if (password && match.password && match.password !== password) {
       return { success: false, error: 'Incorrect password for this hawker account.' };
     }

@@ -1,39 +1,45 @@
-import { PaymentMethod } from './order.model';
+/**
+ * Analytics contract, served by hawkerflow-service-analytics.
+ *
+ * These figures are computed in PostgreSQL from persisted orders, not in the
+ * browser. They are identical on every device and survive a refresh.
+ *
+ * Deliberately absent: payment breakdown, preparation time, takeaway fees and
+ * shift closure. The order schema records none of them, and the API names them
+ * in `unavailableMetrics` rather than returning invented values.
+ */
 
-export interface PaymentBreakdown {
-  method: PaymentMethod;
-  count: number;
-  totalAmount: number;
-  percentage: number;
-}
-
-export interface HourlySales {
-  hour: string; // e.g. "11:00", "12:00"
-  orderCount: number;
-  revenue: number;
-}
-
-export interface TopSellingItem {
-  menuItemId: string;
+export interface TopItem {
+  dishId: number;
   name: string;
   quantity: number;
-  revenue: number;
-  category: string;
+  completedItemValue: number;
 }
 
-export interface ShiftSummary {
-  shiftDate: string;
-  openedAt: string;
-  closedAt?: string;
-  isClosed: boolean;
+export interface HourlyBucket {
+  /** 0-23, Singapore time. All 24 are always present, including empty ones. */
+  hour: number;
+  orderCount: number;
+  completedOrderValue: number;
+}
+
+export interface StallDaySummary {
+  stallId: number;
+  /** YYYY-MM-DD, Singapore calendar date. */
+  date: string;
+  timezone: string;
+  source: string;
   totalOrders: number;
   completedOrders: number;
   cancelledOrders: number;
-  grossSales: number;
-  netSales: number;
-  takeawayFeesCollected: number;
-  avgOrderValue: number;
-  avgPrepTimeMins: number;
-  paymentBreakdown: PaymentBreakdown[];
-  topItems: TopSellingItem[];
+  /** This stall's share only, already rounded to two places. Do not re-round. */
+  completedOrderValue: number;
+  /** null when nothing completed. Never 0, which would read as a measurement. */
+  averageCompletedOrderValue: number | null;
+  topItems: TopItem[];
+  /** Always exactly 24 entries. */
+  hourlyOrders: HourlyBucket[];
+  unavailableMetrics: string[];
 }
+
+export type AnalyticsStatus = 'idle' | 'loading' | 'ready' | 'error' | 'unmapped';
