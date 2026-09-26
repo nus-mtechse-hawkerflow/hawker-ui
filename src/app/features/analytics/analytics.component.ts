@@ -1,35 +1,61 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, effect, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { AnalyticsService } from '../../core/services/analytics.service';
+import { AuthService } from '../../core/services/auth.service';
 import { SettingsService } from '../../core/services/settings.service';
-import { OrderService } from '../../core/services/order.service';
 import { IconComponent } from '../../shared/components/icon/icon.component';
 
 @Component({
   selector: 'app-analytics',
   standalone: true,
-  imports: [CommonModule, IconComponent],
+  imports: [CommonModule, FormsModule, IconComponent],
   templateUrl: './analytics.component.html'
 })
 export class AnalyticsComponent {
   private analyticsService = inject(AnalyticsService);
+  private authService = inject(AuthService);
   private settingsService = inject(SettingsService);
-  private orderService = inject(OrderService);
 
-  readonly summary = this.analyticsService.shiftSummary;
-  readonly hourlyData = this.analyticsService.hourlySales;
+  readonly summary = this.analyticsService.summary;
+  readonly status = this.analyticsService.status;
+  readonly errorMessage = this.analyticsService.errorMessage;
+  readonly selectedDate = this.analyticsService.selectedDate;
   readonly settings = this.settingsService.settings;
 
-  showCloseShiftModal = signal<boolean>(false);
+  /** Scale the chart to the busiest hour, so any volume renders sensibly. */
+  readonly maxHourlyCount = computed(() => {
+    const buckets = this.summary()?.hourlyOrders ?? [];
+    return Math.max(1, ...buckets.map(b => b.orderCount));
+  });
 
-  printShiftReport(): void {
+  constructor() {
+    // Fetch on load and whenever the signed-in stall changes. The previous
+    // version fetched nothing at all, so this screen showed zeros unless the
+    // user had visited KDS or Orders first to populate OrderService.
+    effect(() => {
+      const stall = this.authService.currentStall();
+      this.analyticsService.loadForStall(stall, this.selectedDate());
+    });
+  }
+
+  onDateChange(isoDate: string): void {
+    this.analyticsService.setDate(isoDate);
+  }
+
+  refresh(): void {
+    this.analyticsService.retry();
+  }
+
+  printDailySummary(): void {
     window.print();
   }
 
-  resetOrdersData(): void {
-    if (confirm('Clear all orders in the current shift?')) {
-      this.orderService.resetOrders();
-    }
+  barHeightPercent(orderCount: number): number {
+    return Math.round((orderCount / this.maxHourlyCount()) * 100);
   }
 
+  formatHour(hour: number): string {
+    return `${String(hour).padStart(2, '0')}:00`;
+  }
 }

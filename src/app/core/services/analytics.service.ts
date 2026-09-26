@@ -1,136 +1,112 @@
-import { Injectable, computed, inject } from '@angular/core';
-import { OrderService } from './order.service';
-import { MenuService } from './menu.service';
-import { HourlySales, PaymentBreakdown, ShiftSummary, TopSellingItem } from '../models/analytics.model';
-import { PaymentMethod } from '../models/order.model';
+import { Injectable, inject, signal } from '@angular/core';
+import { Subject, of } from 'rxjs';
+import { catchError, switchMap, tap } from 'rxjs/operators';
+import { AnalyticsApiService } from './analytics-api.service';
+import { AnalyticsStatus, StallDaySummary } from '../models/analytics.model';
+import { StallAccount } from '../models/auth.model';
 
+interface LoadRequest {
+  stallId: number;
+  isoDate: string;
+}
+
+/**
+ * Analytics state.
+ *
+ * This service used to derive every figure with computed() over
+ * OrderService.orders. That had two problems: the numbers only reflected the
+ * orders loaded in the current browser tab (and the analytics screen never
+ * fetched any, so it usually showed zeros), and four of the metrics were
+ * hardcoded constants rather than measurements.
+ *
+ * It is now a fetch state machine over hawkerflow-service-analytics, which
+ * computes the same figures in PostgreSQL from persisted orders.
+ */
 @Injectable({
   providedIn: 'root'
 })
 export class AnalyticsService {
-  private orderService = inject(OrderService);
-  private menuService = inject(MenuService);
+  private api = inject(AnalyticsApiService);
+  private requests = new Subject<LoadRequest>();
 
-  readonly orders = this.orderService.orders;
+  readonly summary = signal<StallDaySummary | null>(null);
+  readonly status = signal<AnalyticsStatus>('idle');
+  readonly errorMessage = signal<string | null>(null);
+  readonly selectedDate = signal<string>(this.singaporeToday());
 
-  readonly shiftSummary = computed<ShiftSummary>(() => {
-    const all = this.orders();
-    const completed = all.filter(o => o.status === 'completed' || o.status === 'ready' || o.status === 'preparing');
-    const cancelled = all.filter(o => o.status === 'cancelled');
+  private lastRequest: LoadRequest | null = null;
 
-    const grossSales = completed.reduce((sum, o) => sum + o.total, 0);
-    const takeawayFeesCollected = completed.reduce((sum, o) => sum + o.takeawayFee, 0);
-    const netSales = grossSales; // before GST/costs
-    const totalOrders = all.length;
-    const completedCount = all.filter(o => o.status === 'completed').length;
-    const avgOrderValue = completed.length > 0 ? Number((grossSales / completed.length).toFixed(2)) : 0;
+  constructor() {
+    // switchMap cancels the in-flight request whenever a new one starts, so a
+    // slow response for a previously selected stall or date can never
+    // overwrite the figures currently on screen.
+    this.requests
+      .pipe(
+        switchMap(req =>
+          this.api.getStallDaySummary(req.stallId, req.isoDate).pipe(
+            tap(result => {
+              this.summary.set(result);
+              this.status.set('ready');
+              this.errorMessage.set(null);
+            }),
+            catchError(() => {
+              // Never fall back to browser-computed figures: a wrong number
+              // shown confidently is worse than no number.
+              this.summary.set(null);
+              this.status.set('error');
+              this.errorMessage.set(
+                'Analytics is unavailable. The figures cannot be shown right now.'
+              );
+              return of(null);
+            })
+          )
+        )
+      )
+      .subscribe();
+  }
 
-    // Calculate Average Prep Time (from createdAt/startedPrepAt to readyAt/completedAt)
-    let totalPrepMinutes = 0;
-    let prepCount = 0;
-    all.forEach(o => {
-      const end = o.readyAt || o.completedAt;
-      const start = o.startedPrepAt || o.createdAt;
-      if (end && start) {
-        const diffMs = new Date(end).getTime() - new Date(start).getTime();
-        const mins = Math.max(1, Math.round(diffMs / (60 * 1000)));
-        totalPrepMinutes += mins;
-        prepCount++;
-      }
-    });
-    const avgPrepTimeMins = prepCount > 0 ? Number((totalPrepMinutes / prepCount).toFixed(1)) : 4.2;
+  /** Today on the Singapore calendar, whatever the device timezone. */
+  singaporeToday(): string {
+    return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Singapore' }).format(new Date());
+  }
 
-    return {
-      shiftDate: new Date().toISOString().split('T')[0],
-      openedAt: new Date(Date.now() - 6 * 3600 * 1000).toISOString(),
-      isClosed: false,
-      totalOrders,
-      completedOrders: completedCount,
-      cancelledOrders: cancelled.length,
-      grossSales: Number(grossSales.toFixed(2)),
-      netSales: Number(netSales.toFixed(2)),
-      takeawayFeesCollected: Number(takeawayFeesCollected.toFixed(2)),
-      avgOrderValue,
-      avgPrepTimeMins,
-      paymentBreakdown: this.paymentBreakdown(),
-      topItems: this.topSellingItems()
-    };
-  });
+  load(stallId: number, isoDate: string): void {
+    this.lastRequest = { stallId, isoDate };
+    this.status.set('loading');
+    this.errorMessage.set(null);
+    this.requests.next(this.lastRequest);
+  }
 
-  readonly paymentBreakdown = computed<PaymentBreakdown[]>(() => {
-    const validOrders = this.orders().filter(o => o.paymentStatus === 'paid' && o.status !== 'cancelled');
-    const totalRev = validOrders.reduce((sum, o) => sum + o.total, 0);
+  /**
+   * Load for a signed-in stall. A stall with no backend id shows a setup
+   * message rather than defaulting to another stall's figures.
+   */
+  loadForStall(stall: StallAccount | null | undefined, isoDate: string): void {
+    const stallId = this.api.resolveStallId(stall);
 
-    const methods: PaymentMethod[] = ['paynow', 'cash', 'nets', 'card'];
-    return methods.map(method => {
-      const matching = validOrders.filter(o => o.paymentMethod === method);
-      const totalAmount = matching.reduce((sum, o) => sum + o.total, 0);
-      const percentage = totalRev > 0 ? Number(((totalAmount / totalRev) * 100).toFixed(1)) : 0;
-      return {
-        method,
-        count: matching.length,
-        totalAmount: Number(totalAmount.toFixed(2)),
-        percentage
-      };
-    });
-  });
+    if (stallId === null) {
+      this.summary.set(null);
+      this.status.set('unmapped');
+      this.errorMessage.set(
+        'This stall has no backend id, so analytics cannot be loaded. Sign in again to refresh it.'
+      );
+      return;
+    }
 
-  readonly topSellingItems = computed<TopSellingItem[]>(() => {
-    const validOrders = this.orders().filter(o => o.status !== 'cancelled');
-    const itemMap = new Map<string, { name: string; quantity: number; revenue: number; category: string }>();
+    this.load(stallId, isoDate);
+  }
 
-    validOrders.forEach(o => {
-      o.items.forEach(item => {
-        const existing = itemMap.get(item.menuItemId) || {
-          name: item.name,
-          quantity: 0,
-          revenue: 0,
-          category: 'Mains'
-        };
-        existing.quantity += item.quantity;
-        existing.revenue += item.totalPrice;
-        itemMap.set(item.menuItemId, existing);
-      });
-    });
+  setDate(isoDate: string): void {
+    this.selectedDate.set(isoDate);
 
-    const list: TopSellingItem[] = [];
-    itemMap.forEach((val, key) => {
-      list.push({
-        menuItemId: key,
-        name: val.name,
-        quantity: val.quantity,
-        revenue: Number(val.revenue.toFixed(2)),
-        category: val.category
-      });
-    });
+    if (this.lastRequest) {
+      this.load(this.lastRequest.stallId, isoDate);
+    }
+  }
 
-    return list.sort((a, b) => b.quantity - a.quantity).slice(0, 6);
-  });
-
-  readonly hourlySales = computed<HourlySales[]>(() => {
-    const validOrders = this.orders().filter(o => o.status !== 'cancelled');
-    const hours = ['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00'];
-    
-    // Map existing orders by hour of creation
-    const hourMap = new Map<string, { count: number; rev: number }>();
-    hours.forEach(h => hourMap.set(h, { count: 0, rev: 0 }));
-
-    validOrders.forEach(o => {
-      const date = new Date(o.createdAt);
-      const hourStr = `${String(date.getHours()).padStart(2, '0')}:00`;
-      const cur = hourMap.get(hourStr) || { count: 0, rev: 0 };
-      cur.count++;
-      cur.rev += o.total;
-      hourMap.set(hourStr, cur);
-    });
-
-    return hours.map(hour => {
-      const data = hourMap.get(hour) || { count: 0, rev: 0 };
-      return {
-        hour,
-        orderCount: data.count,
-        revenue: Number(data.rev.toFixed(2))
-      };
-    });
-  });
+  retry(): void {
+    if (this.lastRequest) {
+      this.load(this.lastRequest.stallId, this.lastRequest.isoDate);
+    }
+  }
 }
