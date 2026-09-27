@@ -11,6 +11,7 @@ import { SettingsService } from './core/services/settings.service';
 import { HawkerApiService } from './core/services/hawker-api.service';
 import { OrderApiService } from './core/services/order-api.service';
 import { AuthTokenService } from './core/services/auth-token.service';
+import { OrderService } from './core/services/order.service';
 
 describe('OrderApiService authorization', () => {
   let orderApi: OrderApiService;
@@ -54,6 +55,81 @@ describe('OrderApiService authorization', () => {
     await pending;
 
     expect(req.request.headers.has('Authorization')).toBe(false);
+  });
+});
+
+describe('OrderService status sync', () => {
+  let orderService: OrderService;
+  let stallStatusCalls: string[];
+  let releaseNext: Map<string, Array<(ok: boolean) => void>>;
+
+  const settle = () => new Promise(resolve => setTimeout(resolve, 0));
+  const release = async (orderNumber: string, ok = true) => {
+    releaseNext.get(orderNumber)!.shift()!(ok);
+    await settle();
+  };
+  const order = (id: string, backendOrderId: number) =>
+    ({ id, backendOrderId, stallId: 1, orderNumber: `HF-${backendOrderId}`, status: 'pending', items: [] }) as any;
+
+  beforeEach(() => {
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [provideRouter(routes), provideHttpClient(), provideHttpClientTesting()]
+    });
+    const api = TestBed.inject(OrderApiService);
+    stallStatusCalls = [];
+    releaseNext = new Map();
+    // Each stall-status PATCH stays in flight until the test releases it.
+    vi.spyOn(api, 'updateStallOrderStatus').mockImplementation((_stallId, backendOrderId, status) => {
+      stallStatusCalls.push(`HF-${backendOrderId}:${status}`);
+      return new Promise((resolve, reject) => {
+        const queue = releaseNext.get(`HF-${backendOrderId}`) ?? [];
+        queue.push(ok => (ok ? resolve({}) : reject(new Error('502 Bad Gateway'))));
+        releaseNext.set(`HF-${backendOrderId}`, queue);
+      });
+    });
+    vi.spyOn(api, 'updateOrderStatus').mockResolvedValue({});
+    orderService = TestBed.inject(OrderService);
+  });
+
+  it("should send an order's status changes to the backend one at a time, in click order", async () => {
+    orderService.orders.set([order('o-110', 110)]);
+
+    orderService.updateOrderStatus('o-110', 'preparing');
+    orderService.updateOrderStatus('o-110', 'ready');
+    orderService.updateOrderStatus('o-110', 'completed');
+    await settle();
+
+    // The screen moves on at once; the backend hears one change at a time.
+    expect(orderService.orders()[0].status).toBe('completed');
+    expect(stallStatusCalls).toEqual(['HF-110:PREPARING']);
+
+    await release('HF-110');
+    expect(stallStatusCalls).toEqual(['HF-110:PREPARING', 'HF-110:READY']);
+
+    await release('HF-110');
+    expect(stallStatusCalls).toEqual(['HF-110:PREPARING', 'HF-110:READY', 'HF-110:COMPLETED']);
+  });
+
+  it('should still send the next status change after one fails', async () => {
+    orderService.orders.set([order('o-110', 110)]);
+
+    orderService.updateOrderStatus('o-110', 'preparing');
+    orderService.updateOrderStatus('o-110', 'ready');
+    await settle();
+    await release('HF-110', false);
+
+    expect(stallStatusCalls).toEqual(['HF-110:PREPARING', 'HF-110:READY']);
+  });
+
+  it('should not hold up one order behind another', async () => {
+    orderService.orders.set([order('o-110', 110), order('o-111', 111)]);
+
+    orderService.updateOrderStatus('o-110', 'preparing');
+    orderService.updateOrderStatus('o-111', 'preparing');
+    await settle();
+
+    expect(stallStatusCalls).toEqual(['HF-110:PREPARING', 'HF-111:PREPARING']);
   });
 });
 
