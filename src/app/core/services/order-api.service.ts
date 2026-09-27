@@ -2,6 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { environment } from '../../../environments/environment';
+import { AuthTokenService } from './auth-token.service';
 import {
   BackendOrderSubmissionPayload,
   BackendStallOrdersResponseDto
@@ -12,14 +13,15 @@ import {
 })
 export class OrderApiService {
   private http = inject(HttpClient);
+  private authToken = inject(AuthTokenService);
   private baseUrl = environment.orderApiUrl || 'http://localhost:8082/hawkerflow';
 
-  private createHeaders(stallId?: number | string): HttpHeaders {
+  private async createHeaders(stallId?: number | string): Promise<HttpHeaders> {
     let headers = new HttpHeaders();
     if (stallId !== undefined && stallId !== null) {
       headers = headers.set('X-Stall-ID', String(stallId));
     }
-    const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+    const token = await this.authToken.getAccessToken();
     if (token) {
       headers = headers.set('Authorization', `Bearer ${token}`);
     }
@@ -35,7 +37,7 @@ export class OrderApiService {
     if (status) {
       params = params.set('status', status);
     }
-    const headers = this.createHeaders(stallId);
+    const headers = await this.createHeaders(stallId);
 
     return firstValueFrom(
       this.http.get<BackendStallOrdersResponseDto>(
@@ -54,7 +56,7 @@ export class OrderApiService {
     if (status) {
       params = params.set('status', status);
     }
-    const headers = this.createHeaders(stallId);
+    const headers = await this.createHeaders(stallId);
 
     return firstValueFrom(
       this.http.get<BackendStallOrdersResponseDto>(
@@ -74,7 +76,7 @@ export class OrderApiService {
     orderId: number,
     status: string
   ): Promise<any> {
-    const headers = this.createHeaders(stallId);
+    const headers = await this.createHeaders(stallId);
     return firstValueFrom(
       this.http.patch<any>(
         `${this.baseUrl}/v1/order/stalls/${stallId}/orders/${orderId}`,
@@ -89,7 +91,7 @@ export class OrderApiService {
    * PUT /v1/order/orders/update
    */
   async updateOrderStatus(orderId: number, status: string): Promise<any> {
-    const headers = this.createHeaders();
+    const headers = await this.createHeaders();
     return firstValueFrom(
       this.http.put<any>(
         `${this.baseUrl}/v1/order/orders/update`,
@@ -104,7 +106,7 @@ export class OrderApiService {
    * POST /v1/order/orders
    */
   async submitOrder(payload: BackendOrderSubmissionPayload): Promise<any> {
-    const headers = this.createHeaders();
+    const headers = await this.createHeaders();
     return firstValueFrom(
       this.http.post<any>(`${this.baseUrl}/v1/order/orders`, payload, { headers })
     );
@@ -115,7 +117,7 @@ export class OrderApiService {
    * GET /v1/order/orders/{order_id}
    */
   async getOrder(orderId: number): Promise<any> {
-    const headers = this.createHeaders();
+    const headers = await this.createHeaders();
     return firstValueFrom(
       this.http.get<any>(`${this.baseUrl}/v1/order/orders/${orderId}`, { headers })
     );
