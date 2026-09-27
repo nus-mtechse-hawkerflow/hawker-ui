@@ -173,8 +173,18 @@ export class OrderService {
               newPendingCount++;
               map.set(key, pendingOrd);
             } else {
-              // Update details while keeping current status progression if bumped locally
-              map.set(key, { ...existingOrd, ...pendingOrd });
+              // Update details while keeping current status progression if bumped locally.
+              // This poll lists only PENDING orders, and can be answered before a status
+              // change the hawker just made reaches the backend, so the local status is
+              // never older than the polled one.
+              map.set(key, {
+                ...existingOrd,
+                ...pendingOrd,
+                status: existingOrd.status,
+                startedPrepAt: existingOrd.startedPrepAt,
+                readyAt: existingOrd.readyAt,
+                completedAt: existingOrd.completedAt
+              });
             }
           }
 
