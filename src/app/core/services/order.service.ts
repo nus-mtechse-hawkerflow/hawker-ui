@@ -275,7 +275,7 @@ export class OrderService {
       stallId: dto.stall_id,
       orderNumber: `HF-${String(dto.order_id).padStart(3, '0')}`,
       dailySequence: dto.order_id,
-      diningOption: 'dine_in',
+      diningOption: dto.dining_option === 'takeaway' ? 'takeaway' : 'dine_in',
       tableOrBuzzerNumber: dto.order_id ? `#${dto.order_id}` : '',
       items: items,
       subtotal: dto.subtotal || 0,
@@ -411,12 +411,15 @@ export class OrderService {
           stall_id: stallNumericId,
           dishes: items.map((item, idx) => ({
             dish_id: item.dishId || (idx + 1),
+            dish_name: item.name,
             quantity: item.quantity,
             price: item.unitPriceWithModifiers
           }))
         }
       ],
-      total_price: total
+      total_price: total,
+      dining_option: diningOption,
+      takeaway_fee: takeawayFee
     };
 
     let backendOrderId: number | undefined = undefined;

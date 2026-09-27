@@ -156,6 +156,55 @@ describe('OrderService status sync', () => {
   });
 });
 
+describe('OrderService dining option and counter orders', () => {
+  let orderService: OrderService;
+  let api: OrderApiService;
+
+  beforeEach(() => {
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [provideRouter(routes), provideHttpClient(), provideHttpClientTesting()]
+    });
+    api = TestBed.inject(OrderApiService);
+    vi.spyOn(TestBed.inject(AuthService), 'currentStall').mockReturnValue({ id: 'stall-1', numericId: 1 } as any);
+    orderService = TestBed.inject(OrderService);
+  });
+
+  it('should show a diner takeaway order as takeaway, and one without an option as dine-in', async () => {
+    const dto = (orderId: number, extra: object = {}) => ({
+      stall_order_id: orderId, order_id: orderId, stall_id: 1, status: 'PENDING',
+      subtotal: 4.5, created_at: '2026-09-27T12:00:00', items: [], ...extra
+    });
+    vi.spyOn(api, 'getMyStallOrders').mockResolvedValue({
+      stall_id: 1, orders: [dto(130, { dining_option: 'takeaway' }), dto(131)]
+    } as any);
+
+    await orderService.pollPendingOrders();
+
+    const byId = (id: number) => orderService.orders().find(o => o.backendOrderId === id)!;
+    expect(byId(130).diningOption).toBe('takeaway');
+    expect(byId(131).diningOption).toBe('dine_in');
+  });
+
+  it('should send a counter takeaway order with dish names, its dining option and fee', async () => {
+    const submitSpy = vi.spyOn(api, 'submitOrder').mockResolvedValue({ order_id: 140 });
+    TestBed.inject(SettingsService).settings.set({ enableTakeawayFee: true, takeawayFeeAmount: 0.3, enableGst: false, gstRate: 0 } as any);
+    orderService.cartItems.set([{
+      id: 'c1', menuItemId: 'm1', dishId: 1, name: 'Steamed Chicken Rice', basePrice: 4.5,
+      quantity: 1, selectedModifiers: [], unitPriceWithModifiers: 4.5, totalPrice: 4.5
+    } as any]);
+    orderService.diningOption.set('takeaway');
+
+    await orderService.submitOrder('cash', 10);
+
+    const sent = submitSpy.mock.calls[0][0];
+    expect(sent.orders[0].dishes[0].dish_name).toBe('Steamed Chicken Rice');
+    expect(sent.dining_option).toBe('takeaway');
+    expect(sent.takeaway_fee).toBe(0.3);
+    expect(orderService.orders()[0].backendOrderId).toBe(140);
+  });
+});
+
 describe('HawkerFlow App & Multi-Stall System', () => {
   let authService: AuthService;
   let menuService: MenuService;
