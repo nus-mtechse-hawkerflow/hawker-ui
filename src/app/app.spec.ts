@@ -234,7 +234,7 @@ describe('HawkerFlow App & Multi-Stall System', () => {
     expect(authService.pendingRegistration()?.email).toBe('king@example.com');
   });
 
-  it('should login strictly by username and reject login by email, stall name, or unit #', async () => {
+  it('should login by username or email and reject login by stall name or unit #', async () => {
     vi.spyOn(authService, 'isCognitoConfigured').mockReturnValue(false);
 
     authService.registerStall({
@@ -257,10 +257,13 @@ describe('HawkerFlow App & Multi-Stall System', () => {
     expect(successLogin.success).toBe(true);
     expect(authService.currentSession()?.username).toBe('hokkien_uncle');
 
-    // Logging in by email or stall name or unit # should fail
+    // Email is accepted too: a backend-registered stall's only identifier is
+    // the owner's email.
     const emailLogin = await authService.login('uncletan@oldairport.sg', 'password123');
-    expect(emailLogin.success).toBe(false);
+    expect(emailLogin.success).toBe(true);
+    expect(authService.currentSession()?.username).toBe('hokkien_uncle');
 
+    // Logging in by stall name or unit # should fail
     const stallNameLogin = await authService.login('Uncle Tan Fried Hokkien Prawn Mee', 'password123');
     expect(stallNameLogin.success).toBe(false);
 
