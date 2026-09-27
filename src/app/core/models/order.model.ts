@@ -56,6 +56,7 @@ export interface Order {
 
 export interface BackendDishDto {
   dish_id: number;
+  dish_name: string;
   quantity: number;
   price: number;
 }
@@ -68,6 +69,9 @@ export interface BackendOrderGroupDto {
 export interface BackendOrderSubmissionPayload {
   orders: BackendOrderGroupDto[];
   total_price: number;
+  // Both self-collect; takeaway tells the stall to pack the order.
+  dining_option?: DiningOption;
+  takeaway_fee?: number;
 }
 
 export interface BackendStallOrderItemDto {
@@ -82,6 +86,7 @@ export interface BackendStallOrderDto {
   stall_id: number;
   status: string; // PENDING, COOKING, PREPARING, READY, COMPLETED, CANCELLED, COLLECTED
   subtotal: number;
+  dining_option?: DiningOption; // absent on orders from before dining options were stored
   created_at: string;
   items: BackendStallOrderItemDto[];
 }
