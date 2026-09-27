@@ -122,6 +122,29 @@ describe('OrderService status sync', () => {
     expect(stallStatusCalls).toEqual(['HF-110:PREPARING', 'HF-110:READY']);
   });
 
+  it('should keep a status the hawker just set when a pending-orders poll still lists the order as pending', async () => {
+    const api = TestBed.inject(OrderApiService);
+    vi.spyOn(TestBed.inject(AuthService), 'currentStall').mockReturnValue({ id: 'stall-1', numericId: 1 } as any);
+    const pendingDto = (orderId: number) => ({
+      stall_order_id: orderId, order_id: orderId, stall_id: 1, status: 'PENDING',
+      subtotal: 4.5, created_at: '2026-09-27T09:00:00', items: []
+    });
+    // Two diners' orders arrive together
+    vi.spyOn(api, 'getMyStallOrders').mockResolvedValue({ stall_id: 1, orders: [pendingDto(120), pendingDto(121)] } as any);
+    await orderService.pollPendingOrders();
+    const idOf = (backendOrderId: number) => orderService.orders().find(o => o.backendOrderId === backendOrderId)!.id;
+
+    // The hawker starts cooking order 120; its PATCH is still in flight...
+    orderService.updateOrderStatus(idOf(120), 'preparing');
+    // ...when a poll fetched before the PATCH landed still lists both orders as pending.
+    await orderService.pollPendingOrders();
+
+    const byBackendId = (id: number) => orderService.orders().find(o => o.backendOrderId === id)!;
+    expect(byBackendId(120).status).toBe('preparing');
+    expect(byBackendId(120).startedPrepAt).toBeDefined();
+    expect(byBackendId(121).status).toBe('pending');
+  });
+
   it('should not hold up one order behind another', async () => {
     orderService.orders.set([order('o-110', 110), order('o-111', 111)]);
 
