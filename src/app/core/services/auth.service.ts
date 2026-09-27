@@ -440,9 +440,6 @@ export class AuthService {
           const currentUser = await fetchUserAttributes();
           const userSession = await fetchAuthSession();
           console.log('Cognito user attributes:', currentUser);
-          if (userSession.tokens?.accessToken) {
-            localStorage.setItem('accessToken', userSession.tokens.accessToken.toString());
-          }
 
           const hawkerSub = currentUser.sub || (userSession.tokens?.idToken?.payload?.sub as string) || (currentUser as any)['sub'] || '';
 
@@ -757,6 +754,9 @@ export class AuthService {
         console.warn('Cognito signOut error:', e);
       }
     }
+    // Earlier builds copied the access token here at login. It is now read from
+    // Amplify per request (AuthTokenService); drop any copy those builds left.
+    localStorage.removeItem('accessToken');
     this.currentSession.set(null);
     this.router.navigate(['/login']);
   }

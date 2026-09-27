@@ -1,6 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { provideHttpClient } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { vi } from 'vitest';
 import { App } from './app';
 import { routes } from './app.routes';
@@ -8,7 +9,53 @@ import { AuthService } from './core/services/auth.service';
 import { MenuService } from './core/services/menu.service';
 import { SettingsService } from './core/services/settings.service';
 import { HawkerApiService } from './core/services/hawker-api.service';
+import { OrderApiService } from './core/services/order-api.service';
+import { AuthTokenService } from './core/services/auth-token.service';
 
+describe('OrderApiService authorization', () => {
+  let orderApi: OrderApiService;
+  let authToken: AuthTokenService;
+  let httpMock: HttpTestingController;
+
+  beforeEach(() => {
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [provideHttpClient(), provideHttpClientTesting()]
+    });
+    orderApi = TestBed.inject(OrderApiService);
+    authToken = TestBed.inject(AuthTokenService);
+    httpMock = TestBed.inject(HttpTestingController);
+  });
+
+  afterEach(() => {
+    httpMock.verify();
+    localStorage.removeItem('accessToken');
+  });
+
+  it('should send the current Cognito access token, not one saved at login', async () => {
+    localStorage.setItem('accessToken', 'expired-token-saved-at-login');
+    vi.spyOn(authToken, 'getAccessToken').mockResolvedValue('fresh-token');
+
+    const pending = orderApi.getStallOrders(1);
+    const req = await vi.waitFor(() => httpMock.expectOne(r => r.url.endsWith('/v1/order/stalls/1/orders')));
+    req.flush({ orders: [] });
+    await pending;
+
+    expect(req.request.headers.get('Authorization')).toBe('Bearer fresh-token');
+  });
+
+  it('should send no Authorization header when nobody is signed in, even if an old token lingers', async () => {
+    localStorage.setItem('accessToken', 'token-from-a-signed-out-session');
+    vi.spyOn(authToken, 'getAccessToken').mockResolvedValue(null);
+
+    const pending = orderApi.getStallOrders(1);
+    const req = await vi.waitFor(() => httpMock.expectOne(r => r.url.endsWith('/v1/order/stalls/1/orders')));
+    req.flush({ orders: [] });
+    await pending;
+
+    expect(req.request.headers.has('Authorization')).toBe(false);
+  });
+});
 
 describe('HawkerFlow App & Multi-Stall System', () => {
   let authService: AuthService;
@@ -98,6 +145,14 @@ describe('HawkerFlow App & Multi-Stall System', () => {
     authService.logout();
     expect(authService.isAuthenticated()).toBe(false);
     expect(authService.currentSession()).toBeNull();
+  });
+
+  it('should remove a leftover access token from localStorage on logout', async () => {
+    localStorage.setItem('accessToken', 'token-from-an-earlier-login');
+
+    await authService.logout();
+
+    expect(localStorage.getItem('accessToken')).toBeNull();
   });
 
   it('should register a hawker stall with the correct backend payload structure', async () => {
