@@ -30,6 +30,7 @@ export class OrderService {
   readonly lastNotificationMessage = signal<string | null>(null);
 
   private pollingIntervalTimer: any = null;
+  private statusSyncs = new Map<string, Promise<void>>();
   private isPollInProgress = false;
 
   // Cart Computations
@@ -510,18 +511,20 @@ export class OrderService {
       else if (newStatus === 'completed') backendStatus = 'COMPLETED';
       else if (newStatus === 'cancelled') backendStatus = 'CANCELLED';
 
-      // 1. PATCH stall order status on Backend 8082
-      this.orderApiService.updateStallOrderStatus(stallId, backendOrderId, backendStatus).then(res => {
-        console.log(`Backend 8082 stall order status updated for #${backendOrderId}:`, res);
-      }).catch(err => {
-        console.warn(`Stall order status patch warning:`, err);
-      });
+      this.syncStatusToBackend(orderId, async () => {
+        // 1. PATCH stall order status on Backend 8082
+        await this.orderApiService.updateStallOrderStatus(stallId, backendOrderId, backendStatus).then(res => {
+          console.log(`Backend 8082 stall order status updated for #${backendOrderId}:`, res);
+        }).catch(err => {
+          console.warn(`Stall order status patch warning:`, err);
+        });
 
-      // 2. PUT general order status to update customer on Backend 8082
-      this.orderApiService.updateOrderStatus(backendOrderId, backendStatus).then(res => {
-        console.log(`Backend 8082 customer order update:`, res);
-      }).catch(err => {
-        console.warn(`Customer order update warning:`, err);
+        // 2. PUT general order status to update customer on Backend 8082
+        await this.orderApiService.updateOrderStatus(backendOrderId, backendStatus).then(res => {
+          console.log(`Backend 8082 customer order update:`, res);
+        }).catch(err => {
+          console.warn(`Customer order update warning:`, err);
+        });
       });
 
       // 3. User feedback toast
@@ -540,6 +543,23 @@ export class OrderService {
     } else {
       this.audioService.playButtonTap();
     }
+  }
+
+  /**
+   * Runs an order's backend status sync after that order's previous one has
+   * finished. Quick clicks (Preparing, Ready, Completed) otherwise race, and
+   * the order service can publish its status events out of order. Syncs for
+   * different orders still run side by side.
+   */
+  private syncStatusToBackend(orderId: string, sync: () => Promise<void>): void {
+    const previous = this.statusSyncs.get(orderId) ?? Promise.resolve();
+    const next = previous.then(sync);
+    this.statusSyncs.set(orderId, next);
+    next.finally(() => {
+      if (this.statusSyncs.get(orderId) === next) {
+        this.statusSyncs.delete(orderId);
+      }
+    });
   }
 
   recallLastBumpedOrder(): void {
@@ -564,8 +584,10 @@ export class OrderService {
     if (target) {
       const backendOrderId = target.backendOrderId || parseInt(target.orderNumber.replace(/[^0-9]/g, ''), 10) || 1;
       const stallId = target.stallId || this.authService.currentStall()?.numericId || 1;
-      this.orderApiService.updateStallOrderStatus(stallId, backendOrderId, 'CANCELLED').catch(e => console.warn(e));
-      this.orderApiService.updateOrderStatus(backendOrderId, 'CANCELLED').catch(e => console.warn(e));
+      this.syncStatusToBackend(orderId, async () => {
+        await this.orderApiService.updateStallOrderStatus(stallId, backendOrderId, 'CANCELLED').catch(e => console.warn(e));
+        await this.orderApiService.updateOrderStatus(backendOrderId, 'CANCELLED').catch(e => console.warn(e));
+      });
       this.lastNotificationMessage.set(`Order ${target.orderNumber} cancelled • Customer notified of refund/cancellation.`);
       setTimeout(() => this.lastNotificationMessage.set(null), 4000);
     }
