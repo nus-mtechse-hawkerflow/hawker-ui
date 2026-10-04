@@ -199,15 +199,23 @@
 
       <div class="h-44 flex items-end justify-between gap-px sm:gap-1 pt-6 pb-2 px-1 border-b border-slate-100 dark:border-slate-800">
         @for (h of s.hourlyOrders; track h.hour) {
-          <div class="flex-1 flex flex-col items-center gap-2 h-full justify-end group">
-            <div class="opacity-0 group-hover:opacity-100 transition-opacity text-[10px] font-mono font-bold bg-slate-900 text-white dark:bg-white dark:text-slate-900 px-1.5 py-0.5 rounded shadow-md pointer-events-none mb-1 whitespace-nowrap">
-              {{ formatHour(h.hour) }} · {{ h.orderCount }} · ${{ h.completedOrderValue.toFixed(0) }}
+          <!-- min-w-0 lets the 24 columns share the width; without it each one
+               is as wide as its tooltip text and the chart overflows the page -->
+          <div class="flex-1 min-w-0 flex flex-col items-center gap-2 h-full group">
+            <div class="flex-1 min-h-0 w-full flex items-end">
+              <div
+                class="relative w-full rounded-t-sm bg-orange-500 group-hover:bg-orange-600 transition-all cursor-pointer min-h-[3px]"
+                [style.height.%]="barHeightPercent(h.orderCount)"
+              >
+                <!-- Absolutely positioned so the tooltip takes no room in the layout -->
+                <div
+                  class="absolute bottom-full mb-1 z-10 opacity-0 group-hover:opacity-100 transition-opacity text-[10px] font-mono font-bold bg-slate-900 text-white dark:bg-white dark:text-slate-900 px-1.5 py-0.5 rounded shadow-md pointer-events-none whitespace-nowrap"
+                  [ngClass]="h.hour < 4 ? 'left-0' : h.hour > 19 ? 'right-0' : 'left-1/2 -translate-x-1/2'"
+                >
+                  {{ formatHour(h.hour) }} · {{ h.orderCount }} · ${{ h.completedOrderValue.toFixed(0) }}
+                </div>
+              </div>
             </div>
-
-            <div
-              class="w-full rounded-t-sm bg-orange-500 group-hover:bg-orange-600 transition-all cursor-pointer min-h-[3px]"
-              [style.height.%]="barHeightPercent(h.orderCount)"
-            ></div>
 
             <span class="text-[9px] font-mono text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white">
               {{ h.hour }}
