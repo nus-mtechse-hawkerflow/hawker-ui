@@ -12,6 +12,7 @@ import { HawkerApiService } from './core/services/hawker-api.service';
 import { OrderApiService } from './core/services/order-api.service';
 import { AuthTokenService } from './core/services/auth-token.service';
 import { OrderService } from './core/services/order.service';
+import { environment } from '../environments/environment';
 
 describe('OrderApiService authorization', () => {
   let orderApi: OrderApiService;
@@ -417,6 +418,42 @@ describe('HawkerFlow App & Multi-Stall System', () => {
 
     const unitLogin = await authService.login('#01-88', 'password123');
     expect(unitLogin.success).toBe(false);
+  });
+
+  it('should refuse the local login fallback in a production build', async () => {
+    vi.spyOn(authService, 'isCognitoConfigured').mockReturnValue(false);
+
+    // A backend-registered stall: known by email, with no password stored
+    authService.allStalls.update(stalls => [
+      ...stalls,
+      {
+        id: 'stall-99',
+        numericId: 99,
+        username: 'ahhuat',
+        stallName: 'Ah Huat Chicken Rice',
+        hawkerCentreName: 'Maxwell Food Centre',
+        unitNumber: '#01-28',
+        uenNumber: '202319882K',
+        contactNumber: '+65 9123 4567',
+        ownerName: 'Uncle Tan',
+        email: 'ahhuat@maxwell.sg',
+        emoji: '🍗',
+        cuisineCategory: 'Hainanese',
+        settings: {} as any
+      }
+    ]);
+
+    const env = environment as { production: boolean };
+    const wasProduction = env.production;
+    env.production = true;
+    try {
+      const res = await authService.login('ahhuat@maxwell.sg', 'any-password-at-all');
+
+      expect(res.success).toBe(false);
+      expect(authService.currentSession()).toBeNull();
+    } finally {
+      env.production = wasProduction;
+    }
   });
 
   it('should fetch /v1/hawker/me/stall/{hawker_sub} upon login and populate store items', async () => {

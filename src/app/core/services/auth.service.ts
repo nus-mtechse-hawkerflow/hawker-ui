@@ -427,6 +427,7 @@ export class AuthService {
    */
   async login(username: string, password?: string): Promise<{ success: boolean; error?: string }> {
     const term = username.trim().toLowerCase();
+    let cognitoError: string | undefined;
 
     // 1. If Cognito is active, attempt Cognito signIn with username
     if (this.isCognitoConfigured() && password) {
@@ -554,8 +555,15 @@ export class AuthService {
           return { success: true };
         }
       } catch (err: any) {
+        cognitoError = err?.message;
         console.warn('Cognito login attempt failed, falling back to local credentials:', err.message);
       }
+    }
+
+    // The local fallback below accepts any password for a backend-registered
+    // stall, so a deployed build must stop here: Cognito is the only way in.
+    if (environment.production) {
+      return { success: false, error: cognitoError || 'Incorrect email or password.' };
     }
 
     // 2. Local matching fallback, by username or registered email.
@@ -576,8 +584,8 @@ export class AuthService {
     // Backend-registered stalls carry no password: the hawker service stores
     // no credentials at all, because authentication belongs to Cognito. This
     // check therefore passes for them whatever is typed. That is acceptable
-    // only because this fallback runs on a loopback development stack; it must
-    // not survive into any deployed environment.
+    // only because this fallback runs on a loopback development stack; the
+    // production guard above keeps it out of deployed builds.
     if (password && match.password && match.password !== password) {
       return { success: false, error: 'Incorrect password for this hawker account.' };
     }
