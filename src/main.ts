@@ -9,7 +9,7 @@ try {
   Amplify.configure({
     Auth: {
       Cognito: {
-        userPoolEndpoint: "http://localhost.localstack.cloud:4566",
+        userPoolEndpoint: environment.cognito.endpoint,
         userPoolId: environment.cognito.userPoolId,
         userPoolClientId: environment.cognito.userPoolClientId,
         signUpVerificationMethod: environment.cognito.signUpVerificationMethod,
