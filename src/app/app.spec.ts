@@ -12,6 +12,7 @@ import { HawkerApiService } from './core/services/hawker-api.service';
 import { OrderApiService } from './core/services/order-api.service';
 import { AuthTokenService } from './core/services/auth-token.service';
 import { OrderService } from './core/services/order.service';
+import { AnalyticsApiService } from './core/services/analytics-api.service';
 import { environment } from '../environments/environment';
 
 describe('OrderApiService authorization', () => {
@@ -56,6 +57,22 @@ describe('OrderApiService authorization', () => {
     await pending;
 
     expect(req.request.headers.has('Authorization')).toBe(false);
+  });
+});
+
+describe('AnalyticsApiService address', () => {
+  it('should request a path that ad and tracker blockers do not refuse', () => {
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({ providers: [provideHttpClient(), provideHttpClientTesting()] });
+    const api = TestBed.inject(AnalyticsApiService);
+    const httpMock = TestBed.inject(HttpTestingController);
+
+    api.getStallDaySummary(3, '2026-10-04').subscribe();
+
+    const req = httpMock.expectOne(r => r.url.endsWith('/v1/insights/stalls/3/summary'));
+    expect(req.request.url).not.toContain('analytics');
+    expect(req.request.headers.get('X-Stall-ID')).toBe('3');
+    req.flush({});
   });
 });
 

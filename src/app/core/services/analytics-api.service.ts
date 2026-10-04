@@ -14,7 +14,10 @@ export class AnalyticsApiService {
 
   /**
    * Fetch one stall's figures for one Singapore day.
-   * GET /v1/analytics/stalls/{stallId}/summary?date=YYYY-MM-DD
+   * GET /v1/insights/stalls/{stallId}/summary?date=YYYY-MM-DD
+   *
+   * The path says "insights" because ad and tracker blockers refuse browser
+   * requests to anything under /analytics/.
    *
    * Returns an Observable rather than a Promise, unlike OrderApiService: the
    * caller needs switchMap to cancel a stale request, so that a slow response
@@ -25,7 +28,7 @@ export class AnalyticsApiService {
     const params = new HttpParams().set('date', isoDate);
 
     return this.http.get<StallDaySummary>(
-      `${this.baseUrl}/v1/analytics/stalls/${stallId}/summary`,
+      `${this.baseUrl}/v1/insights/stalls/${stallId}/summary`,
       { headers, params }
     );
   }
