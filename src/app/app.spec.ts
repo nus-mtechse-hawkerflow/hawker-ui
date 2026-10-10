@@ -113,8 +113,8 @@ describe('AnalyticsApiService address', () => {
 
     api.getStallDaySummary(3, '2026-10-04').subscribe();
 
-    const req = httpMock.expectOne(r => r.url.endsWith('/v1/analytics/stalls/3/summary'));
-    expect(req.request.url).toContain('/analytics');
+    const req = httpMock.expectOne(r => r.url.endsWith('/v1/insights/stalls/3/summary'));
+    expect(req.request.url).toContain('/insights');
     expect(req.request.headers.get('X-Stall-ID')).toBe('3');
     req.flush({});
   });
