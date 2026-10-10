@@ -10,7 +10,7 @@ const required = [
   'ANALYTICS_API_URL',
   'COGNITO_ENDPOINT',
   'COGNITO_USER_POOL_ID',
-  'COGNITO_CLIENT_ID',
+  'COGNITO_USER_POOL_CLIENT_ID',
   'AWS_REGION'
 ];
 
@@ -28,7 +28,7 @@ const envConfigFile = `export const environment = {
   cognito: {
     endpoint: '${process.env.COGNITO_ENDPOINT}',
     userPoolId: '${process.env.COGNITO_USER_POOL_ID}',
-    userPoolClientId: '${process.env.COGNITO_CLIENT_ID}',
+    userPoolClientId: '${process.env.COGNITO_USER_POOL_CLIENT_ID}',
     region: '${process.env.AWS_REGION}',
     signUpVerificationMethod: 'code' as const
   }
