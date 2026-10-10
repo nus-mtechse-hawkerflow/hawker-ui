@@ -190,7 +190,7 @@ export class LoginComponent {
     this.isLoading.set(true);
 
     try {
-      const identifier = this.pendingVerificationEmail() || this.regEmail.trim().toLowerCase() || this.pendingVerificationUsername() || this.regUsername.trim();
+      const identifier = this.pendingVerificationUsername() || this.regUsername.trim() || this.pendingVerificationEmail() || this.regEmail.trim().toLowerCase();
       const result = await this.authService.confirmCognitoSignUp(identifier, this.confirmCode.trim());
 
       if (result.success) {
@@ -212,7 +212,7 @@ export class LoginComponent {
     this.errorMessage.set('');
     this.successMessage.set('');
     const identifier = this.pendingVerificationUsername() || this.regUsername.trim() || this.pendingVerificationEmail() || this.regEmail.trim().toLowerCase();
-
+    
     if (!identifier) return;
 
     this.isLoading.set(true);
