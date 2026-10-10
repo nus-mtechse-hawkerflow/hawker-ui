@@ -231,7 +231,7 @@ export class AuthService {
         }
 
         const signUpResult = await signUp({
-          username: trimmedUsername,
+          username: trimmedEmail,
           password: req.password,
           options: {
             userAttributes,
@@ -344,7 +344,7 @@ export class AuthService {
    */
   async resendCognitoCode(usernameOrEmail: string): Promise<{ success: boolean; message?: string; error?: string }> {
     const pending = this.pendingRegistration();
-    const cognitoUsername = pending?.username || usernameOrEmail.trim();
+    const cognitoUsername = usernameOrEmail.trim() || pending!.username;
 
     if (this.isCognitoConfigured()) {
       try {
@@ -673,10 +673,10 @@ export class AuthService {
   async registerHawkerStall(req: HawkerRegisterRequest, cognitoSub?: string): Promise<{ success: boolean; stall?: StallAccount; error?: string }> {
     const dishes = (req.menuItems && req.menuItems.length > 0)
       ? req.menuItems.map(d => ({
-          name: d.name.trim(),
-          price: Number(d.price) || 0,
-          description: d.description?.trim() || ''
-        }))
+        name: d.name.trim(),
+        price: Number(d.price) || 0,
+        description: d.description?.trim() || ''
+      }))
       : [];
 
     const sub = cognitoSub || req.cognitoSub || `sub-${Date.now()}`;
@@ -705,7 +705,7 @@ export class AuthService {
       // 3. Find newly created stall (match by name or email)
       const matched = updatedStalls.find(
         s => s.stallName.toLowerCase() === req.stallName.trim().toLowerCase() ||
-             s.email.toLowerCase() === req.email.trim().toLowerCase()
+          s.email.toLowerCase() === req.email.trim().toLowerCase()
       );
 
       if (matched) {
