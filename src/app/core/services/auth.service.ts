@@ -764,7 +764,9 @@ export class AuthService {
     }
     // Earlier builds copied the access token here at login. It is now read from
     // Amplify per request (AuthTokenService); drop any copy those builds left.
-    localStorage.removeItem('accessToken');
+    if (typeof window !== 'undefined' && window.localStorage) {
+      window.localStorage.removeItem('accessToken');
+    }
     this.currentSession.set(null);
     this.router.navigate(['/login']);
   }

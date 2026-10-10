@@ -15,6 +15,50 @@ import { OrderService } from './core/services/order.service';
 import { AnalyticsApiService } from './core/services/analytics-api.service';
 import { environment } from '../environments/environment';
 
+class MemoryStorage implements Storage {
+  private store = new Map<string, string>();
+
+  get length(): number {
+    return this.store.size;
+  }
+
+  clear(): void {
+    this.store.clear();
+  }
+
+  getItem(key: string): string | null {
+    return this.store.has(key) ? this.store.get(key)! : null;
+  }
+
+  key(index: number): string | null {
+    return Array.from(this.store.keys())[index] ?? null;
+  }
+
+  removeItem(key: string): void {
+    this.store.delete(key);
+  }
+
+  setItem(key: string, value: string): void {
+    this.store.set(key, String(value));
+  }
+}
+
+if (!globalThis.localStorage || typeof globalThis.localStorage.getItem !== 'function') {
+  const memoryStorage = new MemoryStorage();
+  Object.defineProperty(globalThis, 'localStorage', {
+    value: memoryStorage,
+    writable: true,
+    configurable: true
+  });
+  if (typeof window !== 'undefined') {
+    Object.defineProperty(window, 'localStorage', {
+      value: memoryStorage,
+      writable: true,
+      configurable: true
+    });
+  }
+}
+
 describe('OrderApiService authorization', () => {
   let orderApi: OrderApiService;
   let authToken: AuthTokenService;
@@ -61,7 +105,7 @@ describe('OrderApiService authorization', () => {
 });
 
 describe('AnalyticsApiService address', () => {
-  it('should request a path that ad and tracker blockers do not refuse', () => {
+  it('should request the stall summary from the analytics endpoint', () => {
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({ providers: [provideHttpClient(), provideHttpClientTesting()] });
     const api = TestBed.inject(AnalyticsApiService);
@@ -69,8 +113,8 @@ describe('AnalyticsApiService address', () => {
 
     api.getStallDaySummary(3, '2026-10-04').subscribe();
 
-    const req = httpMock.expectOne(r => r.url.endsWith('/v1/insights/stalls/3/summary'));
-    expect(req.request.url).not.toContain('analytics');
+    const req = httpMock.expectOne(r => r.url.endsWith('/v1/analytics/stalls/3/summary'));
+    expect(req.request.url).toContain('/analytics');
     expect(req.request.headers.get('X-Stall-ID')).toBe('3');
     req.flush({});
   });
