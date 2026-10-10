@@ -16,6 +16,8 @@ export interface ModifierGroup {
 
 export interface MenuItem {
   id: string;
+  dishId?: number; // Backend dish ID (f_menu_id)
+  stallId?: number; // Backend stall ID (f_stall_id)
   name: string;
   chineseName?: string;
   description: string;

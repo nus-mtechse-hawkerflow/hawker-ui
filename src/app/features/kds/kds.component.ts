@@ -19,6 +19,9 @@ export class KdsComponent {
   readonly preparingOrders = this.orderService.kdsPreparingOrders;
   readonly readyOrders = this.orderService.kdsReadyOrders;
   readonly lastBumpedOrder = this.orderService.lastBumpedOrder;
+  readonly isSyncing = this.orderService.isSyncingOrders;
+  readonly isPolling = this.orderService.isPollingPendingOrders;
+  readonly lastNotificationMessage = this.orderService.lastNotificationMessage;
 
   currentFilter = signal<'all' | 'pending' | 'preparing' | 'ready'>('all');
 
@@ -37,4 +40,9 @@ export class KdsComponent {
   recallLastBumped(): void {
     this.orderService.recallLastBumpedOrder();
   }
+
+  refreshOrders(): void {
+    this.orderService.syncBackendOrders();
+  }
 }
+

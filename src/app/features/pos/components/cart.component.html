@@ -96,7 +96,7 @@
                   <span class="w-1 h-1 rounded-full bg-orange-400"></span>
                   <span>{{ mod.optionName }}</span>
                   @if (mod.priceDelta > 0) {
-                    <span class="text-orange-600 dark:text-orange-400 font-mono">(+\${{ mod.priceDelta.toFixed(2) }})</span>
+                    <span class="text-orange-600 dark:text-orange-400 font-mono">(+${{ mod.priceDelta.toFixed(2) }})</span>
                   }
                 </div>
               }
@@ -111,7 +111,7 @@
 
             <div class="text-right">
               <div class="font-bold text-xs text-slate-900 dark:text-white font-mono">
-                \${{ item.totalPrice.toFixed(2) }}
+                ${{ item.totalPrice.toFixed(2) }}
               </div>
             </div>
           </div>
@@ -159,23 +159,23 @@
     <div class="space-y-1.5 text-xs text-slate-600 dark:text-slate-400">
       <div class="flex justify-between">
         <span>Subtotal</span>
-        <span class="font-mono font-medium text-slate-900 dark:text-white">\${{ subtotal().toFixed(2) }}</span>
+        <span class="font-mono font-medium text-slate-900 dark:text-white">${{ subtotal().toFixed(2) }}</span>
       </div>
       @if (takeawayFee() > 0) {
         <div class="flex justify-between">
           <span>Takeaway Packaging Fee</span>
-          <span class="font-mono font-medium text-slate-900 dark:text-white">\${{ takeawayFee().toFixed(2) }}</span>
+          <span class="font-mono font-medium text-slate-900 dark:text-white">${{ takeawayFee().toFixed(2) }}</span>
         </div>
       }
       @if (tax() > 0) {
         <div class="flex justify-between">
           <span>GST</span>
-          <span class="font-mono font-medium text-slate-900 dark:text-white">\${{ tax().toFixed(2) }}</span>
+          <span class="font-mono font-medium text-slate-900 dark:text-white">${{ tax().toFixed(2) }}</span>
         </div>
       }
       <div class="flex justify-between text-base font-extrabold text-slate-900 dark:text-white pt-2 border-t border-slate-200 dark:border-slate-700">
         <span>Total (SGD)</span>
-        <span class="text-orange-600 dark:text-orange-400 font-mono">\${{ total().toFixed(2) }}</span>
+        <span class="text-orange-600 dark:text-orange-400 font-mono">${{ total().toFixed(2) }}</span>
       </div>
     </div>
 
@@ -193,7 +193,7 @@
         <span>Proceed to Payment</span>
       </div>
       <div class="flex items-center gap-1 font-mono text-base font-extrabold">
-        <span>\${{ total().toFixed(2) }}</span>
+        <span>${{ total().toFixed(2) }}</span>
         <app-icon name="arrow-right" [size]="16"></app-icon>
       </div>
     </button>

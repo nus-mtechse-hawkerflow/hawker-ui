@@ -14,6 +14,7 @@ export interface SelectedModifier {
 export interface OrderItem {
   id: string; // unique item instance id in cart
   menuItemId: string;
+  dishId?: number; // Backend dish ID
   name: string;
   chineseName?: string;
   basePrice: number;
@@ -26,7 +27,10 @@ export interface OrderItem {
 
 export interface Order {
   id: string;
-  orderNumber: string; // e.g. "HF-101"
+  backendOrderId?: number; // Backend order_id (e.g. 26)
+  backendStallOrderId?: number; // Backend stall_order_id (e.g. 26)
+  stallId?: number; // Backend stall_id (e.g. 1)
+  orderNumber: string; // e.g. "HF-101" or "ORD-26"
   dailySequence: number;
   diningOption: DiningOption;
   tableOrBuzzerNumber?: string;
@@ -49,3 +53,46 @@ export interface Order {
   orderNotes?: string;
   cancelledReason?: string;
 }
+
+export interface BackendDishDto {
+  dish_id: number;
+  dish_name: string;
+  quantity: number;
+  price: number;
+}
+
+export interface BackendOrderGroupDto {
+  stall_id: number;
+  dishes: BackendDishDto[];
+}
+
+export interface BackendOrderSubmissionPayload {
+  orders: BackendOrderGroupDto[];
+  total_price: number;
+  // Both self-collect; takeaway tells the stall to pack the order.
+  dining_option?: DiningOption;
+  takeaway_fee?: number;
+}
+
+export interface BackendStallOrderItemDto {
+  dish_id: number;
+  quantity: number;
+  price: number;
+}
+
+export interface BackendStallOrderDto {
+  stall_order_id: number;
+  order_id: number;
+  stall_id: number;
+  status: string; // PENDING, COOKING, PREPARING, READY, COMPLETED, CANCELLED, COLLECTED
+  subtotal: number;
+  dining_option?: DiningOption; // absent on orders from before dining options were stored
+  created_at: string;
+  items: BackendStallOrderItemDto[];
+}
+
+export interface BackendStallOrdersResponseDto {
+  stall_id: number;
+  orders: BackendStallOrderDto[];
+}
+
