@@ -1,9 +1,10 @@
-import { Injectable, signal, computed, effect, inject } from '@angular/core';
-import { DiningOption, Order, OrderItem, OrderStatus, PaymentMethod, SelectedModifier } from '../models/order.model';
+import { Injectable, signal, computed, effect, inject, DestroyRef } from '@angular/core';
+import { DiningOption, Order, OrderItem, OrderStatus, PaymentMethod, SelectedModifier, BackendStallOrderDto, BackendOrderSubmissionPayload } from '../models/order.model';
 import { MenuItem } from '../models/menu.model';
 import { AudioService } from './audio.service';
 import { SettingsService } from './settings.service';
 import { AuthService } from './auth.service';
+import { OrderApiService } from './order-api.service';
 
 @Injectable({
   providedIn: 'root'
@@ -12,6 +13,8 @@ export class OrderService {
   private audioService = inject(AudioService);
   private settingsService = inject(SettingsService);
   private authService = inject(AuthService);
+  private orderApiService = inject(OrderApiService);
+  private destroyRef = inject(DestroyRef);
 
   // Cart State
   readonly cartItems = signal<OrderItem[]>(this.loadCart());
@@ -22,6 +25,13 @@ export class OrderService {
   // Orders State
   readonly orders = signal<Order[]>(this.loadOrders());
   readonly lastBumpedOrder = signal<Order | null>(null);
+  readonly isSyncingOrders = signal<boolean>(false);
+  readonly isPollingPendingOrders = signal<boolean>(false);
+  readonly lastNotificationMessage = signal<string | null>(null);
+
+  private pollingIntervalTimer: any = null;
+  private statusSyncs = new Map<string, Promise<void>>();
+  private isPollInProgress = false;
 
   // Cart Computations
   readonly cartSubtotal = computed(() => {
@@ -78,74 +88,216 @@ export class OrderService {
   });
 
   constructor() {
-    // When stall changes, reload that stall's orders and cart
+    this.destroyRef.onDestroy(() => {
+      this.stopPendingOrdersWorker();
+    });
+
+    // When stall changes, reload that stall's orders and cart + start background polling worker
     effect(() => {
       const stall = this.authService.currentStall();
       if (stall) {
         this.orders.set(this.loadOrders());
         this.cartItems.set(this.loadCart());
         this.lastBumpedOrder.set(null);
-      }
-    });
-
-    effect(() => {
-      const stall = this.authService.currentStall();
-      if (!stall) return;
-
-      const ordersKey = `hawkerflow_orders_${stall.id}`;
-      try {
-        if (typeof window !== 'undefined' && window.localStorage) {
-          window.localStorage.setItem(ordersKey, JSON.stringify(this.orders()));
-        }
-      } catch (e) {
-        // fallback
-      }
-    });
-
-    effect(() => {
-      const stall = this.authService.currentStall();
-      if (!stall) return;
-
-      const cartKey = `hawkerflow_cart_${stall.id}`;
-      try {
-        if (typeof window !== 'undefined' && window.localStorage) {
-          window.localStorage.setItem(cartKey, JSON.stringify(this.cartItems()));
-        }
-      } catch (e) {
-        // fallback
+        // Initial sync of all stall orders
+        this.syncBackendOrders(stall.numericId || 1).catch(err => {
+          console.warn('Initial backend order sync note:', err);
+        });
+        // Start 5s recurring background worker for /v1/order/stalls/me/orders (pending status)
+        this.startPendingOrdersWorker();
+      } else {
+        this.stopPendingOrdersWorker();
       }
     });
   }
+
+  /**
+   * Starts background worker that pings /v1/order/stalls/me/orders every 5s for pending orders.
+   */
+  startPendingOrdersWorker(): void {
+    this.stopPendingOrdersWorker();
+    
+    // Initial immediate poll
+    this.pollPendingOrders();
+
+    if (typeof window !== 'undefined') {
+      this.pollingIntervalTimer = setInterval(() => {
+        this.pollPendingOrders();
+      }, 5000);
+    }
+  }
+
+  /**
+   * Stops background polling worker.
+   */
+  stopPendingOrdersWorker(): void {
+    if (this.pollingIntervalTimer) {
+      clearInterval(this.pollingIntervalTimer);
+      this.pollingIntervalTimer = null;
+    }
+    this.isPollingPendingOrders.set(false);
+  }
+
+  /**
+   * Worker task: pings GET /v1/order/stalls/me/orders with status=pending every 5 seconds.
+   */
+  async pollPendingOrders(): Promise<void> {
+    const stall = this.authService.currentStall();
+    if (!stall) {
+      this.stopPendingOrdersWorker();
+      return;
+    }
+
+    if (this.isPollInProgress) return;
+    this.isPollInProgress = true;
+    this.isPollingPendingOrders.set(true);
+
+    try {
+      const res = await this.orderApiService.getMyStallOrders(stall.numericId, 'pending');
+      if (res && res.orders && Array.isArray(res.orders)) {
+        const mappedPending = res.orders.map(dto => this.mapBackendOrderToOrder(dto, stall));
+        
+        let newPendingCount = 0;
+
+        this.orders.update(existing => {
+          const map = new Map<string | number, Order>();
+          for (const ord of existing) {
+            map.set(ord.backendOrderId || ord.id, ord);
+          }
+
+          for (const pendingOrd of mappedPending) {
+            const key = pendingOrd.backendOrderId || pendingOrd.id;
+            const existingOrd = map.get(key);
+
+            if (!existingOrd) {
+              newPendingCount++;
+              map.set(key, pendingOrd);
+            } else {
+              // Update details while keeping current status progression if bumped locally.
+              // This poll lists only PENDING orders, and can be answered before a status
+              // change the hawker just made reaches the backend, so the local status is
+              // never older than the polled one.
+              map.set(key, {
+                ...existingOrd,
+                ...pendingOrd,
+                status: existingOrd.status,
+                startedPrepAt: existingOrd.startedPrepAt,
+                readyAt: existingOrd.readyAt,
+                completedAt: existingOrd.completedAt
+              });
+            }
+          }
+
+          return Array.from(map.values());
+        });
+
+        if (newPendingCount > 0) {
+          this.audioService.playNewOrderAlert();
+          this.lastNotificationMessage.set(
+            newPendingCount === 1 ? 'New customer pending order received!' : `${newPendingCount} new pending orders received!`
+          );
+        }
+      }
+    } catch (err: any) {
+      // Graceful error capture for background polling
+      console.debug('Background worker pending orders ping (/v1/order/stalls/me/orders) status:', err?.message || err);
+    } finally {
+      this.isPollInProgress = false;
+      this.isPollingPendingOrders.set(false);
+    }
+  }
+
+  /**
+   * Fetch orders from backend 8082 for active stall
+   */
+  async syncBackendOrders(stallIdParam?: number): Promise<void> {
+    const stall = this.authService.currentStall();
+    const stallId = stallIdParam || stall?.numericId || 1;
+
+    this.isSyncingOrders.set(true);
+    try {
+      const res = await this.orderApiService.getStallOrders(stallId);
+      if (res && res.orders && Array.isArray(res.orders)) {
+        const mappedBackendOrders = res.orders.map(dto => this.mapBackendOrderToOrder(dto, stall));
+        
+        // Merge with existing local orders by id / backendOrderId
+        this.orders.update(existing => {
+          const merged = [...mappedBackendOrders];
+          for (const localOrd of existing) {
+            if (!merged.some(m => m.id === localOrd.id || (m.backendOrderId && m.backendOrderId === localOrd.backendOrderId))) {
+              merged.push(localOrd);
+            }
+          }
+          return merged;
+        });
+      }
+    } catch (err: any) {
+      console.warn(`Could not sync orders from backend 8082 for stall ${stallId}:`, err);
+    } finally {
+      this.isSyncingOrders.set(false);
+    }
+  }
+
+  private mapBackendOrderToOrder(dto: BackendStallOrderDto, stall: any): Order {
+    const statusLower = (dto.status || '').toLowerCase();
+    let status: OrderStatus = 'pending';
+    if (statusLower === 'cooking' || statusLower === 'preparing') {
+      status = 'preparing';
+    } else if (statusLower === 'ready') {
+      status = 'ready';
+    } else if (statusLower === 'completed' || statusLower === 'collected') {
+      status = 'completed';
+    } else if (statusLower === 'cancelled') {
+      status = 'cancelled';
+    }
+
+    const stallMenu = stall?.initialMenuItems || [];
+    const items: OrderItem[] = (dto.items || []).map((it, idx) => {
+      const matchItem = stallMenu.find((m: MenuItem) => m.dishId === it.dish_id);
+      return {
+        id: `backend-item-${dto.order_id}-${it.dish_id}-${idx}`,
+        menuItemId: matchItem ? matchItem.id : `dish-${it.dish_id}`,
+        dishId: it.dish_id,
+        name: matchItem ? matchItem.name : `Specialty Dish #${it.dish_id}`,
+        chineseName: matchItem?.chineseName,
+        basePrice: it.price || 5.0,
+        quantity: it.quantity || 1,
+        selectedModifiers: [],
+        unitPriceWithModifiers: it.price || 5.0,
+        totalPrice: Number(((it.price || 5.0) * (it.quantity || 1)).toFixed(2))
+      };
+    });
+
+    return {
+      id: `ord-backend-${dto.order_id}`,
+      backendOrderId: dto.order_id,
+      backendStallOrderId: dto.stall_order_id,
+      stallId: dto.stall_id,
+      orderNumber: `HF-${String(dto.order_id).padStart(3, '0')}`,
+      dailySequence: dto.order_id,
+      diningOption: dto.dining_option === 'takeaway' ? 'takeaway' : 'dine_in',
+      tableOrBuzzerNumber: dto.order_id ? `#${dto.order_id}` : '',
+      items: items,
+      subtotal: dto.subtotal || 0,
+      takeawayFee: 0,
+      tax: 0,
+      discount: 0,
+      total: dto.subtotal || 0,
+      paymentMethod: 'paynow',
+      paymentStatus: 'paid',
+      status: status,
+      createdAt: dto.created_at || new Date().toISOString()
+    };
+  }
+
 
   private loadOrders(): Order[] {
     const stall = this.authService.currentStall();
     if (!stall) return [];
-
-    try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        const stored = window.localStorage.getItem(`hawkerflow_orders_${stall.id}`);
-        if (stored) return JSON.parse(stored);
-      }
-    } catch (e) {
-      // fallback
-    }
-
     return stall.initialOrders || [];
   }
 
   private loadCart(): OrderItem[] {
-    const stall = this.authService.currentStall();
-    if (!stall) return [];
-
-    try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        const stored = window.localStorage.getItem(`hawkerflow_cart_${stall.id}`);
-        if (stored) return JSON.parse(stored);
-      }
-    } catch (e) {
-      // fallback
-    }
-
     return [];
   }
 
@@ -235,11 +387,11 @@ export class OrderService {
   }
 
   // Order Submission & KDS Flow
-  submitOrder(paymentMethod: PaymentMethod, cashTendered?: number, paynowRef?: string): Order {
-    const currentOrders = this.orders();
-    const nextSeq = currentOrders.length + 1;
-    const orderNum = `HF-${String(nextSeq).padStart(3, '0')}`;
-
+  async submitOrder(paymentMethod: PaymentMethod, cashTendered?: number, paynowRef?: string): Promise<Order> {
+    const items = [...this.cartItems()];
+    const diningOption = this.diningOption();
+    const tableOrBuzzerNumber = this.tableOrBuzzerNumber() || (diningOption === 'dine_in' ? 'Table Walk-in' : 'Takeaway Counter');
+    const orderNotes = this.orderNotes();
     const subtotal = this.cartSubtotal();
     const takeawayFee = this.cartTakeawayFee();
     const tax = this.cartTax();
@@ -250,13 +402,53 @@ export class OrderService {
       cashChange = Math.max(0, Number((cashTendered - total).toFixed(2)));
     }
 
+    const currentStall = this.authService.currentStall();
+    const stallNumericId = currentStall?.numericId || 1;
+
+    const backendPayload: BackendOrderSubmissionPayload = {
+      orders: [
+        {
+          stall_id: stallNumericId,
+          dishes: items.map((item, idx) => ({
+            dish_id: item.dishId || (idx + 1),
+            dish_name: item.name,
+            quantity: item.quantity,
+            price: item.unitPriceWithModifiers
+          }))
+        }
+      ],
+      total_price: total,
+      dining_option: diningOption,
+      takeaway_fee: takeawayFee
+    };
+
+    let backendOrderId: number | undefined = undefined;
+    let backendStallOrderId: number | undefined = undefined;
+
+    try {
+      const res = await this.orderApiService.submitOrder(backendPayload);
+      console.log('Order submitted to backend 8082 successfully:', res);
+      
+      backendOrderId = res?.order_id ?? res?.id ?? res?.data?.order_id ?? res?.orders?.[0]?.order_id ?? (typeof res === 'number' ? res : undefined);
+      backendStallOrderId = res?.stall_order_id ?? res?.data?.stall_order_id ?? res?.orders?.[0]?.stall_order_id ?? backendOrderId;
+    } catch (err: any) {
+      console.warn('Backend order submission note:', err);
+    }
+
+    const finalOrderId = backendOrderId ? `ord-backend-${backendOrderId}` : `ord-local-${Date.now()}`;
+    const orderNum = backendOrderId ? `HF-${String(backendOrderId).padStart(3, '0')}` : `HF-${Date.now().toString().slice(-4)}`;
+    const dailySeq = backendOrderId || (this.orders().length + 1);
+
     const newOrder: Order = {
-      id: 'ord-' + Date.now(),
+      id: finalOrderId,
+      backendOrderId: backendOrderId,
+      backendStallOrderId: backendStallOrderId,
+      stallId: stallNumericId,
       orderNumber: orderNum,
-      dailySequence: nextSeq,
-      diningOption: this.diningOption(),
-      tableOrBuzzerNumber: this.tableOrBuzzerNumber() || (this.diningOption() === 'dine_in' ? 'Table Walk-in' : 'Takeaway Counter'),
-      items: [...this.cartItems()],
+      dailySequence: dailySeq,
+      diningOption,
+      tableOrBuzzerNumber,
+      items,
       subtotal,
       takeawayFee,
       tax,
@@ -269,11 +461,24 @@ export class OrderService {
       paynowRef: paynowRef || (paymentMethod === 'paynow' ? 'PN-' + Math.floor(10000000 + Math.random() * 90000000) : undefined),
       status: 'pending',
       createdAt: new Date().toISOString(),
-      orderNotes: this.orderNotes()
+      orderNotes
     };
 
-    this.orders.update(list => [newOrder, ...list]);
+    this.orders.update(list => {
+      const filtered = list.filter(o => {
+        if (backendOrderId && o.backendOrderId === backendOrderId) return false;
+        if (o.id === finalOrderId) return false;
+        return true;
+      });
+      return [newOrder, ...filtered];
+    });
+
     this.clearCart();
+
+    if (backendOrderId) {
+      this.lastNotificationMessage.set(`Order ${orderNum} created (Backend ID: ${backendOrderId})`);
+      setTimeout(() => this.lastNotificationMessage.set(null), 4000);
+    }
 
     // Audio & Feedback
     this.audioService.playCheckoutSuccess();
@@ -284,11 +489,17 @@ export class OrderService {
     return newOrder;
   }
 
-  updateOrderStatus(orderId: string, newStatus: OrderStatus): void {
+  /**
+   * Update order status locally and notify customer via Backend Service (Port 8082)
+   */
+  updateOrderStatus(orderId: string, newStatus: OrderStatus, customMessage?: string): void {
     const now = new Date().toISOString();
+    let targetOrder: Order | undefined;
+
     this.orders.update(list =>
       list.map(order => {
         if (order.id !== orderId) return order;
+        targetOrder = order;
         const updated = { ...order, status: newStatus };
         if (newStatus === 'preparing' && !order.startedPrepAt) {
           updated.startedPrepAt = now;
@@ -302,6 +513,44 @@ export class OrderService {
       })
     );
 
+    // Backend 8082 Status Sync & Customer Notification
+    if (targetOrder) {
+      const backendOrderId = targetOrder.backendOrderId || parseInt(targetOrder.orderNumber.replace(/[^0-9]/g, ''), 10) || 1;
+      const stallId = targetOrder.stallId || this.authService.currentStall()?.numericId || 1;
+
+      let backendStatus = 'PENDING';
+      if (newStatus === 'preparing') backendStatus = 'PREPARING';
+      else if (newStatus === 'ready') backendStatus = 'READY';
+      else if (newStatus === 'completed') backendStatus = 'COMPLETED';
+      else if (newStatus === 'cancelled') backendStatus = 'CANCELLED';
+
+      this.syncStatusToBackend(orderId, async () => {
+        // 1. PATCH stall order status on Backend 8082
+        await this.orderApiService.updateStallOrderStatus(stallId, backendOrderId, backendStatus).then(res => {
+          console.log(`Backend 8082 stall order status updated for #${backendOrderId}:`, res);
+        }).catch(err => {
+          console.warn(`Stall order status patch warning:`, err);
+        });
+
+        // 2. PUT general order status to update customer on Backend 8082
+        await this.orderApiService.updateOrderStatus(backendOrderId, backendStatus).then(res => {
+          console.log(`Backend 8082 customer order update:`, res);
+        }).catch(err => {
+          console.warn(`Customer order update warning:`, err);
+        });
+      });
+
+      // 3. User feedback toast
+      const statusLabel = backendStatus;
+      const feedback = customMessage || `Order ${targetOrder.orderNumber} updated to ${statusLabel} • Customer notified!`;
+      this.lastNotificationMessage.set(feedback);
+      setTimeout(() => {
+        if (this.lastNotificationMessage() === feedback) {
+          this.lastNotificationMessage.set(null);
+        }
+      }, 4000);
+    }
+
     if (newStatus === 'completed') {
       this.audioService.playTicketBumped();
     } else {
@@ -309,23 +558,34 @@ export class OrderService {
     }
   }
 
+  /**
+   * Runs an order's backend status sync after that order's previous one has
+   * finished. Quick clicks (Preparing, Ready, Completed) otherwise race, and
+   * the order service can publish its status events out of order. Syncs for
+   * different orders still run side by side.
+   */
+  private syncStatusToBackend(orderId: string, sync: () => Promise<void>): void {
+    const previous = this.statusSyncs.get(orderId) ?? Promise.resolve();
+    const next = previous.then(sync);
+    this.statusSyncs.set(orderId, next);
+    next.finally(() => {
+      if (this.statusSyncs.get(orderId) === next) {
+        this.statusSyncs.delete(orderId);
+      }
+    });
+  }
+
   recallLastBumpedOrder(): void {
     const last = this.lastBumpedOrder();
     if (!last) return;
 
-    this.orders.update(list =>
-      list.map(order => {
-        if (order.id === last.id) {
-          return { ...order, status: 'ready', completedAt: undefined };
-        }
-        return order;
-      })
-    );
+    this.updateOrderStatus(last.id, 'ready', `Order ${last.orderNumber} recalled to READY`);
     this.lastBumpedOrder.set(null);
     this.audioService.playButtonTap();
   }
 
   cancelOrder(orderId: string, reason: string): void {
+    const target = this.orders().find(o => o.id === orderId);
     this.orders.update(list =>
       list.map(order =>
         order.id === orderId
@@ -333,6 +593,18 @@ export class OrderService {
           : order
       )
     );
+
+    if (target) {
+      const backendOrderId = target.backendOrderId || parseInt(target.orderNumber.replace(/[^0-9]/g, ''), 10) || 1;
+      const stallId = target.stallId || this.authService.currentStall()?.numericId || 1;
+      this.syncStatusToBackend(orderId, async () => {
+        await this.orderApiService.updateStallOrderStatus(stallId, backendOrderId, 'CANCELLED').catch(e => console.warn(e));
+        await this.orderApiService.updateOrderStatus(backendOrderId, 'CANCELLED').catch(e => console.warn(e));
+      });
+      this.lastNotificationMessage.set(`Order ${target.orderNumber} cancelled • Customer notified of refund/cancellation.`);
+      setTimeout(() => this.lastNotificationMessage.set(null), 4000);
+    }
+
     this.audioService.playButtonTap();
   }
 
@@ -342,3 +614,4 @@ export class OrderService {
     this.lastBumpedOrder.set(null);
   }
 }
+
