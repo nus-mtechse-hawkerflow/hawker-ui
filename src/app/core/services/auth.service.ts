@@ -302,7 +302,7 @@ export class AuthService {
     if (this.isCognitoConfigured()) {
       try {
         const output = await confirmSignUp({
-          username: cognitoUsername,
+          username: trimmedUser,
           confirmationCode: trimmedCode
         });
 
