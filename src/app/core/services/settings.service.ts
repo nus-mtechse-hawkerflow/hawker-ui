@@ -19,26 +19,15 @@ export class SettingsService {
       }
     });
 
-    // Auto-save changes to localStorage scoped by stall id
+    // Apply dark theme class if needed
     effect(() => {
       const current = this.settings();
-      const stall = this.authService.currentStall();
-      if (!stall) return;
-
-      const key = `hawkerflow_settings_${stall.id}`;
-      try {
-        if (typeof window !== 'undefined' && window.localStorage) {
-          window.localStorage.setItem(key, JSON.stringify(current));
+      if (typeof document !== 'undefined') {
+        if (current.isDarkTheme) {
+          document.documentElement.classList.add('dark');
+        } else {
+          document.documentElement.classList.remove('dark');
         }
-        if (typeof document !== 'undefined') {
-          if (current.isDarkTheme) {
-            document.documentElement.classList.add('dark');
-          } else {
-            document.documentElement.classList.remove('dark');
-          }
-        }
-      } catch (e) {
-        // fallback
       }
     });
   }
@@ -47,14 +36,14 @@ export class SettingsService {
     const stall = this.authService.currentStall();
     if (!stall) {
       return {
-        stallName: 'Hawker Stall',
-        hawkerCentreName: 'Hawker Centre',
-        unitNumber: '#01-01',
-        uenNumber: '202300000A',
-        contactNumber: '+65 9000 0000',
+        stallName: '',
+        hawkerCentreName: '',
+        unitNumber: '',
+        uenNumber: '',
+        contactNumber: '',
         currencySymbol: 'SGD $',
-        enableTakeawayFee: true,
-        takeawayFeeAmount: 0.30,
+        enableTakeawayFee: false,
+        takeawayFeeAmount: 0,
         enableGst: false,
         gstRate: 0.09,
         isDarkTheme: false,
@@ -63,17 +52,6 @@ export class SettingsService {
         kdsWarningThresholdMins: 5,
         kdsCriticalThresholdMins: 10
       };
-    }
-
-    try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        const stored = window.localStorage.getItem(`hawkerflow_settings_${stall.id}`);
-        if (stored) {
-          return { ...stall.settings, ...JSON.parse(stored) };
-        }
-      }
-    } catch (e) {
-      // fallback
     }
 
     return stall.settings;
