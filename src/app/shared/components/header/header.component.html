@@ -65,19 +65,14 @@
         <span>Orders & Receipts</span>
       </a>
 
-      <!-- Menu & 86 Tab -->
+      <!-- Menu Tab -->
       <a
         routerLink="/menu"
         routerLinkActive="bg-white dark:bg-slate-900 text-orange-600 dark:text-orange-400 shadow-sm font-semibold"
         class="flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-all whitespace-nowrap"
       >
         <app-icon name="sliders" [size]="18"></app-icon>
-        <span>Menu & 86</span>
-        @if (soldOutCount() > 0) {
-          <span class="px-1.5 py-0.5 text-xs font-bold rounded-full bg-rose-500 text-white">
-            {{ soldOutCount() }} 86'd
-          </span>
-        }
+        <span>Menu</span>
       </a>
 
       <!-- Analytics Tab -->
