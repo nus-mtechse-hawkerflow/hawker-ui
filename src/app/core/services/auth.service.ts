@@ -121,13 +121,12 @@ export class AuthService {
       basePrice: Number(m.f_menu_price) || 0,
       emoji: '🍲',
       isAvailable: true,
-      popularBadge: mIdx === 0 ? 'Signature' : undefined,
       preparationTimeMins: 4
     }));
 
     const categories: Category[] = [
       { id: 'all', name: 'All Items', chineseName: '全部', icon: 'utensils', displayOrder: 0 },
-      { id: 'mains', name: 'Signatures', chineseName: '招牌', icon: 'flame', displayOrder: 1 }
+      { id: 'mains', name: 'Main', chineseName: '主菜', icon: 'flame', displayOrder: 1 }
     ];
 
     return {
@@ -372,7 +371,6 @@ export class AuthService {
       basePrice: Number(m.price) || 0,
       emoji: '🍲',
       isAvailable: true,
-      popularBadge: idx === 0 ? 'Signature' : undefined,
       preparationTimeMins: 4
     }));
 
@@ -410,7 +408,7 @@ export class AuthService {
       },
       initialCategories: [
         { id: 'all', name: 'All Items', chineseName: '全部', icon: 'utensils', displayOrder: 0 },
-        { id: 'mains', name: 'Signatures', chineseName: '招牌', icon: 'flame', displayOrder: 1 }
+        { id: 'mains', name: 'Main', chineseName: '主菜', icon: 'flame', displayOrder: 1 }
       ],
       initialMenuItems: menuItems,
       initialOrders: []
@@ -467,7 +465,6 @@ export class AuthService {
               basePrice: Number(m.menu_price) || 5.0,
               emoji: '🍲',
               isAvailable: true,
-              popularBadge: idx === 0 ? 'Signature' : undefined,
               preparationTimeMins: 4
             }));
 
@@ -509,7 +506,7 @@ export class AuthService {
               },
               initialCategories: existing?.initialCategories || [
                 { id: 'all', name: 'All Items', chineseName: '全部', icon: 'utensils', displayOrder: 0 },
-                { id: 'mains', name: 'Signatures', chineseName: '招牌', icon: 'flame', displayOrder: 1 }
+                { id: 'mains', name: 'Main', chineseName: '主菜', icon: 'flame', displayOrder: 1 }
               ],
               initialMenuItems: menuItems,
               initialOrders: existing?.initialOrders || []
@@ -610,7 +607,6 @@ export class AuthService {
             basePrice: Number(m.menu_price) || 5.0,
             emoji: '🍲',
             isAvailable: true,
-            popularBadge: idx === 0 ? 'Signature' : undefined,
             preparationTimeMins: 4
           }));
 
