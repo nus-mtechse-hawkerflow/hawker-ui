@@ -191,6 +191,15 @@ export class OrderService {
           return Array.from(map.values());
         });
 
+        // A ticket still pending here but no longer pending on the server was
+        // cancelled (the 15-minute expiry) or moved on from another device:
+        // re-sync so the kitchen display drops it without a manual refresh.
+        const serverPending = new Set(mappedPending.map(o => o.backendOrderId));
+        const stale = this.orders().some(o => o.status === 'pending' && !!o.backendOrderId && !serverPending.has(o.backendOrderId));
+        if (stale) {
+          this.syncBackendOrders(stall.numericId).catch(() => undefined);
+        }
+
         if (newPendingCount > 0) {
           this.audioService.playNewOrderAlert();
           this.lastNotificationMessage.set(
@@ -268,6 +277,16 @@ export class OrderService {
       };
     });
 
+    // The order service sends created_at as naive UTC ("YYYY-MM-DD HH:MM:SS").
+    // Without a zone the browser reads it as local time (8 h early in SGT),
+    // so mark it as UTC before parsing.
+    const createdAt = dto.created_at
+      ? (/(Z|[+-]\d{2}:?\d{2})$/i.test(dto.created_at) ? dto.created_at : dto.created_at.replace(' ', 'T') + 'Z')
+      : new Date().toISOString();
+    // The stall-order list carries the dining option but not the fee amount.
+    const subtotal = dto.subtotal || 0;
+    const takeawayFee = dto.dining_option === 'takeaway' ? (dto.takeaway_fee ?? 0.30) : 0;
+
     return {
       id: `ord-backend-${dto.order_id}`,
       backendOrderId: dto.order_id,
@@ -278,15 +297,15 @@ export class OrderService {
       diningOption: dto.dining_option === 'takeaway' ? 'takeaway' : 'dine_in',
       tableOrBuzzerNumber: dto.order_id ? `#${dto.order_id}` : '',
       items: items,
-      subtotal: dto.subtotal || 0,
-      takeawayFee: 0,
+      subtotal: subtotal,
+      takeawayFee: takeawayFee,
       tax: 0,
       discount: 0,
-      total: dto.subtotal || 0,
+      total: Number((subtotal + takeawayFee).toFixed(2)),
       paymentMethod: 'paynow',
       paymentStatus: 'paid',
       status: status,
-      createdAt: dto.created_at || new Date().toISOString()
+      createdAt: createdAt
     };
   }
 

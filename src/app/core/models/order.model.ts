@@ -87,6 +87,7 @@ export interface BackendStallOrderDto {
   status: string; // PENDING, COOKING, PREPARING, READY, COMPLETED, CANCELLED, COLLECTED
   subtotal: number;
   dining_option?: DiningOption; // absent on orders from before dining options were stored
+  takeaway_fee?: number; // not sent by the order service yet; 0.30 assumed for takeaway
   created_at: string;
   items: BackendStallOrderItemDto[];
 }
